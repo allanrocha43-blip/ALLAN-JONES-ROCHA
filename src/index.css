@@ -1,0 +1,135 @@
+
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Design system definition.
+ *
+ * The @theme inline block maps CSS custom properties to Tailwind utility
+ * classes (e.g. --color-primary -> bg-primary, text-primary).
+ *
+ * The :root and .dark blocks define the actual color values using oklch.
+ * All colors MUST use oklch format.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "DM Sans", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ok: var(--ok);
+  --color-ok-surface: var(--ok-surface);
+  --color-warn: var(--warn);
+  --color-warn-surface: var(--warn-surface);
+  --color-crit: var(--crit);
+  --color-crit-surface: var(--crit-surface);
+  --color-info: var(--info);
+  --color-info-surface: var(--info-surface);
+}
+
+/* LIGHT — papel técnico: off-white azulado, tinta navy, severidades dessaturadas */
+:root {
+  --radius: 0.5rem;
+  --background: oklch(0.972 0.006 250);
+  --foreground: oklch(0.26 0.05 262);
+  --surface: oklch(0.995 0.002 250);
+  --surface-2: oklch(0.955 0.008 250);
+  --card: oklch(0.995 0.002 250);
+  --card-foreground: oklch(0.26 0.05 262);
+  --popover: oklch(0.995 0.002 250);
+  --popover-foreground: oklch(0.26 0.05 262);
+  --primary: oklch(0.51 0.09 250);
+  --primary-foreground: oklch(0.985 0.004 250);
+  --secondary: oklch(0.945 0.01 250);
+  --secondary-foreground: oklch(0.3 0.05 262);
+  --muted: oklch(0.945 0.01 250);
+  --muted-foreground: oklch(0.53 0.03 258);
+  --accent: oklch(0.93 0.02 250);
+  --accent-foreground: oklch(0.3 0.05 262);
+  --destructive: oklch(0.53 0.16 25);
+  --destructive-foreground: oklch(0.985 0.004 250);
+  --border: oklch(0.9 0.012 250);
+  --border-strong: oklch(0.83 0.02 250);
+  --input: oklch(0.9 0.012 250);
+  --ring: oklch(0.51 0.09 250);
+  --ok: oklch(0.52 0.11 160);
+  --ok-surface: oklch(0.95 0.03 160);
+  --warn: oklch(0.56 0.1 75);
+  --warn-surface: oklch(0.955 0.035 85);
+  --crit: oklch(0.52 0.15 25);
+  --crit-surface: oklch(0.95 0.03 25);
+  --info: oklch(0.52 0.09 240);
+  --info-surface: oklch(0.95 0.025 240);
+}
+
+/* DARK — command deck: navy profundo, contraste calibrado, sem preto puro */
+.dark {
+  --background: oklch(0.21 0.055 265);
+  --foreground: oklch(0.93 0.014 250);
+  --surface: oklch(0.255 0.055 264);
+  --surface-2: oklch(0.3 0.055 262);
+  --card: oklch(0.255 0.055 264);
+  --card-foreground: oklch(0.93 0.014 250);
+  --popover: oklch(0.255 0.055 264);
+  --popover-foreground: oklch(0.93 0.014 250);
+  --primary: oklch(0.58 0.09 250);
+  --primary-foreground: oklch(0.97 0.008 250);
+  --secondary: oklch(0.32 0.05 262);
+  --secondary-foreground: oklch(0.93 0.014 250);
+  --muted: oklch(0.32 0.05 262);
+  --muted-foreground: oklch(0.7 0.03 253);
+  --accent: oklch(0.35 0.055 258);
+  --accent-foreground: oklch(0.95 0.01 250);
+  --destructive: oklch(0.62 0.15 25);
+  --destructive-foreground: oklch(0.97 0.008 250);
+  --border: oklch(0.36 0.045 260);
+  --border-strong: oklch(0.46 0.05 258);
+  --input: oklch(0.36 0.045 260);
+  --ring: oklch(0.58 0.09 250);
+  --ok: oklch(0.76 0.12 165);
+  --ok-surface: oklch(0.32 0.05 190);
+  --warn: oklch(0.8 0.11 80);
+  --warn-surface: oklch(0.33 0.045 90);
+  --crit: oklch(0.71 0.13 25);
+  --crit-surface: oklch(0.33 0.06 20);
+  --info: oklch(0.74 0.09 235);
+  --info-surface: oklch(0.32 0.05 245);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}

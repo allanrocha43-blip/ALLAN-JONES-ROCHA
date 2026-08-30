@@ -1,0 +1,6 @@
+{
+  "name": "Auditor TISS Pro v8.0",
+  "description": "Validador e Auditor TISS ANS para arquivos XML com processamento de lote, auditoria de regras XSD, correção automática e assinatura de hash MD5.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
