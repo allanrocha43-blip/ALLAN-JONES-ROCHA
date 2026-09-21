@@ -61,7 +61,10 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
       const resHash = exportarXmlValidadoComHash(xmlTrabalho);
       if (resHash.sucesso) {
         xmlTrabalho = resHash.novoConteudo;
-        return { finalConteudo: xmlTrabalho, hashMD5: resHash.hashCalculado };
+        // resHash.hashCalculado é tipado como `string | null` (o motor pode, em tese,
+        // retornar sucesso sem hash em cenários futuros); normalizamos para `undefined`
+        // aqui para bater com o contrato local e evitar o erro de tipo antigo.
+        return { finalConteudo: xmlTrabalho, hashMD5: resHash.hashCalculado ?? undefined };
       } else {
         throw new Error(resHash.erroMsg || "Não foi possível gerar o Hash MD5.");
       }

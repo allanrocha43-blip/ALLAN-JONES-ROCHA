@@ -1,0 +1,73 @@
+69-  }
+70-
+71-  // MÓDULO DE REGRAS XSD (Linha a Linha)
+72-  linhas.forEach((linha, i) => {
+73-    const numLinha = i + 1;
+74-
+75-    // Fator comercial 0.70
+76-    if (linha.includes('>0.70<') && linha.includes('reducaoAcrescimo')) {
+77-      inconsistencias.push({
+78-        id: `aviso-fator-${numLinha}`,
+79-        linha: numLinha,
+80-        tipo: "Aviso",
+81-        desc: "Fator comercial 0.70 detectado.",
+82-        original: linha,
+83-        sugestao: linha.replace(">0.70<", ">1.00<"),
+84:        seguro: true
+85-      });
+86-    }
+87-
+88-    // Separador decimal ilegal (vírgula em valores XSD)
+89-    if (/<(?:[^:]+:)?valor[^>]*>\d+,\d+<\//.test(linha)) {
+90-      const linhaLimpa = linha.replace(/(<(?:[^:]+:)?valor[^>]*>)(\d+),(\d+)(<\/)/g, '$1$2.$3$4');
+91-      inconsistencias.push({
+92-        id: `xsd-virgula-${numLinha}`,
+93-        linha: numLinha,
+94-        tipo: "XSD Schema",
+95-        desc: "Separador decimal ilegal (vírgula).",
+96-        original: linha,
+97-        sugestao: linhaLimpa,
+98:        seguro: true
+99-      });
+100-    }
+101-
+102-    // <regimeAtendimento> ilegal em Consulta
+103-    if (linha.includes('regimeAtendimento') && isConsulta) {
+104-      const linhaLimpa = linha.replace(/<(?:[^:]+:)?regimeAtendimento(?:\s*\/>|>.*?<\/(?:[^:]+:)?regimeAtendimento>)/g, '').trim();
+105-      inconsistencias.push({
+106-        id: `critico-regime-${numLinha}`,
+107-        linha: numLinha,
+108-        tipo: "Crítico",
+109-        desc: "<regimeAtendimento> ilegal em Consulta.",
+110-        original: linha,
+111-        sugestao: linhaLimpa,
+112:        seguro: true
+113-      });
+114-    }
+115-
+116-    // <tecnicaUtilizada> em SADT
+117-    if (linha.includes('tecnicaUtilizada') && isSadt) {
+118-      const linhaLimpa = linha.replace(/<(?:[^:]+:)?tecnicaUtilizada(?:\s*\/>|>.*?<\/(?:[^:]+:)?tecnicaUtilizada>)/g, '').trim();
+119-      inconsistencias.push({
+120-        id: `erro-tecnica-${numLinha}`,
+121-        linha: numLinha,
+122-        tipo: "Erro Regra",
+123-        desc: "Exame contém <tecnicaUtilizada>.",
+124-        original: linha,
+125-        sugestao: linhaLimpa,
+126:        seguro: true
+127-      });
+128-    }
+129-
+130-    // <cnpjContratado> sem <nomeContratado> na próxima linha
+131-    if (linha.includes('cnpjContratado') && linha.includes('</')) {
+132-      if (i + 1 < linhas.length && !linhas[i + 1].includes('nomeContratado')) {
+133-        const espaco = linha.split('<')[0] || "    ";
+134-        const prefixoMatch = linha.match(/<([^:]+:)?cnpjContratado/);
+135-        const pre = (prefixoMatch && prefixoMatch[1]) ? prefixoMatch[1] : "";
+136-        inconsistencias.push({
+137-          id: `inconsist-nome-${numLinha}`,
+138-          linha: numLinha,
+139-          tipo: "Inconsistência",
+140-          desc: "Razão Social (Nome) não encontrada após o CNPJ.",
+141-          original: linha,

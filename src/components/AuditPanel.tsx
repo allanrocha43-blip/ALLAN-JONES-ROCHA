@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Sparkles, Eye, Check, X, ShieldCheck } from 'lucide-react';
 import { Inconsistency, InconsistencyType } from '../types/tiss';
+import { isCritico } from '../utils/severidade';
 
 interface AuditPanelProps {
   inconsistencias: Inconsistency[];
@@ -24,25 +25,22 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
 
   const errosSeguros = inconsistencias.filter(e => e.seguro);
 
+  // Antes havia 3 listas de tipos hardcoded aqui (e outras 2 divergentes em
+  // App.tsx) que não concordavam entre si. Agora tudo usa `isCritico`,
+  // que é a mesma função usada pelo motor de auditoria e pelo App.tsx.
   const inconsistenciasFiltradas = inconsistencias.filter(erro => {
     if (filtroTipo === 'todos') return true;
-    if (filtroTipo === 'criticos') return erro.tipo === 'Crítico' || erro.tipo === 'XSD Schema' || erro.tipo === 'Erro Órfão';
-    if (filtroTipo === 'avisos') return erro.tipo === 'Aviso' || erro.tipo === 'Inconsistência' || erro.tipo === 'Erro Regra';
+    if (filtroTipo === 'criticos') return isCritico(erro);
+    if (filtroTipo === 'avisos') return !isCritico(erro);
     return true;
   });
 
   const getCorBorda = (tipo: InconsistencyType) => {
-    if (tipo === "Crítico" || tipo === "XSD Schema" || tipo === "Erro Órfão") {
-      return "border-[#e63946]";
-    }
-    return "border-[#e9c46a]";
+    return isCritico({ tipo }) ? "border-[#e63946]" : "border-[#e9c46a]";
   };
 
   const getCorTextoBadge = (tipo: InconsistencyType) => {
-    if (tipo === "Crítico" || tipo === "XSD Schema" || tipo === "Erro Órfão") {
-      return "text-[#e63946]";
-    }
-    return "text-[#e9c46a]";
+    return isCritico({ tipo }) ? "text-[#e63946]" : "text-[#e9c46a]";
   };
 
   return (

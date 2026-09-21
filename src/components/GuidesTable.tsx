@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { RefreshCw, Search, Layers, Link, CreditCard, Building, Hash, FileCheck, Trash2, ChevronDown, ChevronRight, Key, ArrowRightToLine, ArrowLeftToLine } from 'lucide-react';
+import { RefreshCw, Search, Link, CreditCard, Building, Hash, FileCheck, Trash2, ChevronDown, ChevronRight, Key } from 'lucide-react';
 import { GuideItem, ProcedimentoItem } from '../types/tiss';
 
 interface GuidesTableProps {
