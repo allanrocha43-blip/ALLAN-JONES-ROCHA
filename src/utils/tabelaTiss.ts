@@ -243,3 +243,103 @@ export function isDescricaoValida(codigo: string, descricaoInformada: string): b
   return matchCount >= Math.min(2, Math.max(1, wordsInfo.length * 0.5));
 }
 
+// ============================================================================
+// TABELA E REGRAS DE CÁLCULO PARA VIAS DE ACESSO E BILATERALIDADE (DOIS OLHOS)
+// Referência: CBHPM / Diretrizes ANS TISS para Atos Cirúrgicos Múltiplos
+// ============================================================================
+
+export interface RegraViaAcesso {
+  id: string;
+  rotulo: string;
+  fator: number;
+  percentual: string;
+  descricao: string;
+  aplicacao: string;
+}
+
+export const REGRAS_VIAS_ACESSO: Record<string, RegraViaAcesso> = {
+  'primeiro_olho': {
+    id: 'primeiro_olho',
+    rotulo: '1º Olho (Via Principal / Maior Porte)',
+    fator: 1.00,
+    percentual: '100%',
+    descricao: 'Procedimento único ou o de maior porte cirúrgico no primeiro olho.',
+    aplicacao: 'Remuneração integral (100%) dos honorários e do valor pactuado.'
+  },
+  'segundo_olho_via_diferente': {
+    id: 'segundo_olho_via_diferente',
+    rotulo: '2º Olho (Via de Acesso Diferente / Bilateral)',
+    fator: 0.70,
+    percentual: '70%',
+    descricao: 'Mesmo procedimento ou procedimentos distintos realizados no segundo olho (órgão par / incisões separadas).',
+    aplicacao: 'Cobrança com fator 0.70 (70% do valor do procedimento / redução de 30% conforme CBHPM e ANS).'
+  },
+  'mesma_via': {
+    id: 'mesma_via',
+    rotulo: 'Mesma Via de Acesso (Mesmo Olho / Mesma Incisão)',
+    fator: 0.50,
+    percentual: '50%',
+    descricao: 'Segundo procedimento realizado no mesmo olho através da mesma incisão cirúrgica.',
+    aplicacao: 'Cobrança com fator 0.50 (50% do valor unitário do procedimento secundário).'
+  },
+  'adicional_via_diferente': {
+    id: 'adicional_via_diferente',
+    rotulo: '3º Procedimento ou Adicional (Via Diferente)',
+    fator: 0.70,
+    percentual: '70%',
+    descricao: 'Procedimento cirúrgico subsequente praticado por via de acesso distinta.',
+    aplicacao: 'Cobrança com fator 0.70 (70%).'
+  }
+};
+
+// Procedimentos oftalmológicos comumente realizados em ambos os olhos (bilaterais)
+export const PROCEDIMENTOS_OFTALMOLOGICOS_BILATERAIS = [
+  { codigo: '30306027', nome: 'Facectomia com LIO com facoemulsificação (Catarata)', porte: '10A' },
+  { codigo: '30306035', nome: 'Facectomia com LIO sem facoemulsificação', porte: '9B' },
+  { codigo: '30306019', nome: 'Capsulotomia YAG ou cirúrgica', porte: '5A' },
+  { codigo: '30307120', nome: 'Vitrectomia vias pars plana', porte: '9C' },
+  { codigo: '30310032', nome: 'Cirurgias fistulizantes antiglaucomatosas (Trabeculectomia)', porte: '8A' },
+  { codigo: '30303060', nome: 'Pterígio - exérese', porte: '3C' },
+  { codigo: '30301181', nome: 'Ptose palpebral - correção cirúrgica', porte: '7A' },
+  { codigo: '30312043', nome: 'Fotocoagulação (laser) - por sessão', porte: '5A' },
+  { codigo: '30307040', nome: 'Injeção intravítrea de medicamento antiangiogênico', porte: '6A' },
+];
+
+/**
+ * Calcula o valor total de um procedimento considerando o fator de via de acesso / bilateralidade.
+ * Fórmula: Quantidade * Valor Unitário * Fator Redução/Acréscimo
+ */
+export function calcularValorProcedimentoComVia(
+  quantidadeStr: string | number,
+  valorUnitarioStr: string | number,
+  fatorReducaoStr?: string | number
+): { valorTotal: string; fatorAplicado: number; descricaoRegra: string } {
+  const q = typeof quantidadeStr === 'number' ? quantidadeStr : (parseFloat(String(quantidadeStr).replace(',', '.')) || 0);
+  const u = typeof valorUnitarioStr === 'number' ? valorUnitarioStr : (parseFloat(String(valorUnitarioStr).replace(',', '.')) || 0);
+  
+  let fator = 1.0;
+  if (fatorReducaoStr !== undefined && fatorReducaoStr !== null && String(fatorReducaoStr).trim() !== '') {
+    const f = typeof fatorReducaoStr === 'number' ? fatorReducaoStr : parseFloat(String(fatorReducaoStr).replace(',', '.'));
+    if (!isNaN(f) && f > 0) {
+      fator = f;
+    }
+  }
+
+  const total = (q * u * fator).toFixed(2);
+
+  let descricaoRegra = 'Integral (100%)';
+  if (Math.abs(fator - 0.70) < 0.01) {
+    descricaoRegra = '2º Olho / Via Diferente (70%)';
+  } else if (Math.abs(fator - 0.50) < 0.01) {
+    descricaoRegra = 'Mesma Via de Acesso (50%)';
+  } else if (fator !== 1.0) {
+    descricaoRegra = `Fator ${(fator * 100).toFixed(0)}%`;
+  }
+
+  return {
+    valorTotal: total,
+    fatorAplicado: fator,
+    descricaoRegra
+  };
+}
+

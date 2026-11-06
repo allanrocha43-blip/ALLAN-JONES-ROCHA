@@ -22,9 +22,11 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
   const [incluirHash, setIncluirHash] = useState(true);
   const [formatarEstrutura, setFormatarEstrutura] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [erroMsg, setErroMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      setErroMsg(null);
       // Suggest filename with _NOVO or keep original if user wants
       if (nomeAtual) {
         const extIndex = nomeAtual.lastIndexOf('.');
@@ -44,8 +46,6 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
       }
     }
   }, [isOpen, nomeAtual]);
-
-  if (!isOpen) return null;
 
   const processarConteudoParaSalvar = (): { finalConteudo: string; hashMD5?: string } => {
     let xmlTrabalho = conteudoAtual;
@@ -129,7 +129,7 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Erro ao salvar como:', err);
-      alert(err.message || 'Erro ao processar o arquivo.');
+      setErroMsg(err?.message || 'Erro ao processar o arquivo.');
     } finally {
       setSalvando(false);
     }
@@ -147,19 +147,35 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Erro ao criar novo no sistema:', err);
-      alert(err.message || 'Erro ao processar o arquivo.');
+      setErroMsg(err?.message || 'Erro ao processar o arquivo.');
     }
   };
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4">
+      {isOpen && (
         <motion.div
-          initial={{ scale: 0.9, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.9, opacity: 0, y: 10 }}
-          className="bg-[#1a1d1e] border border-[#2d3235] rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4"
+          onClick={onClose}
         >
+          <motion.div
+            initial={{ scale: 0.96, opacity: 0, y: 12 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.96, opacity: 0, y: 8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#1a1d1e] border border-[#2d3235] rounded-xl shadow-2xl w-full max-w-md overflow-hidden"
+          >
+          {erroMsg && (
+            <div className="bg-red-500/15 border-b border-red-500/30 text-red-200 text-xs px-4 py-2.5 flex items-center justify-between">
+              <span>{erroMsg}</span>
+              <button onClick={() => setErroMsg(null)} className="text-red-300 hover:text-white font-bold ml-2">×</button>
+            </div>
+          )}
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 bg-[#121415] border-b border-[#2d3235]">
             <div className="flex items-center gap-2.5 text-[#00b4d8]">
@@ -257,7 +273,8 @@ export const SaveAsModal: React.FC<SaveAsModalProps> = ({
             </div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 };

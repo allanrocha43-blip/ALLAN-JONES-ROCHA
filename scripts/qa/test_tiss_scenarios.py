@@ -105,7 +105,7 @@ class TestCenariosFaturamento:
             <ans:Padrao>4.02.00</ans:Padrao>
             <ans:procedimento>
                <ans:codigoTabela>22</ans:codigoTabela>
-               <ans:codigoProcedimento>12345</ans:codigoProcedimento> <!-- Inválido para Tabela 22 -->
+               <ans:codigoProcedimento>12345</ans:codigoProcedimento> <!-- Invalido para Tabela 22 -->
             </ans:procedimento>
         </ans:mensagemTISS>
         '''

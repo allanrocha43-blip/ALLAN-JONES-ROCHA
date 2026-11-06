@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
-import { RefreshCw, Search, Link, CreditCard, Building, Hash, FileCheck, Trash2, ChevronDown, ChevronRight, Key } from 'lucide-react';
-import { GuideItem, ProcedimentoItem } from '../types/tiss';
+import React, { useState, useEffect, useMemo } from 'react';
+import { RefreshCw, Search, Link, CreditCard, Building, Hash, FileCheck, Trash2, ChevronDown, ChevronRight, Key, Eye, AlertCircle, AlertTriangle, Code2 } from 'lucide-react';
+import { GuideItem, ProcedimentoItem, Inconsistency } from '../types/tiss';
+import { ViasAcessoModal } from './ViasAcessoModal';
+import { cn } from '../lib/utils';
+import { isCritico } from '../utils/severidade';
 
 interface GuidesTableProps {
   guias: GuideItem[];
+  inconsistencias?: Inconsistency[];
   onSincronizarGuia: (
     guide: GuideItem,
     novosDados: { carteira: string; guia: string; senha: string; guiaPrestador: string }
@@ -22,10 +25,22 @@ interface GuidesTableProps {
   onExcluirProcedimento?: (proc: ProcedimentoItem) => void;
   selectedGuides?: string[];
   onToggleGuideSelection?: (guideId: string) => void;
+  onVerNoXml?: (linha: number) => void;
 }
 
-export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGuia, onSincronizarProcedimento, onExcluirGuia, onExcluirProcedimento, selectedGuides, onToggleGuideSelection }) => {
+export const GuidesTable: React.FC<GuidesTableProps> = ({ 
+  guias, 
+  inconsistencias = [],
+  onSincronizarGuia, 
+  onSincronizarProcedimento, 
+  onExcluirGuia, 
+  onExcluirProcedimento, 
+  selectedGuides, 
+  onToggleGuideSelection,
+  onVerNoXml
+}) => {
   const [busca, setBusca] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<'todas' | 'criticas' | 'consulta' | 'sadt'>('todas');
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [formState, setFormState] = useState<
@@ -34,6 +49,8 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
   const [procFormState, setProcFormState] = useState<
     Record<string, { codigo: string; quantidade: string; valorUnitario: string; reducaoAcrescimo: string; valor: string; dataExecucao: string }>
   >({});
+  const [viasModalOpen, setViasModalOpen] = useState(false);
+  const [targetProcForModal, setTargetProcForModal] = useState<string | null>(null);
 
   // Refs to track the last known XML state so we don't overwrite user edits unless the XML actually changed
   const handleBridgeSync = (guideId: string, _source: 'senha' | 'guia' | 'guiaPrestador', value: string) => {
@@ -142,19 +159,24 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
     }));
   };
 
-  const recalcTotal = (qtd: string, unit: string) => {
+  const recalcTotal = (qtd: string, unit: string, red?: string) => {
     const q = parseFloat(qtd.replace(',', '.')) || 0;
     const u = parseFloat(unit.replace(',', '.')) || 0;
-    // O TISS define o valor total do procedimento primariamente como (Quantidade * Unitário).
-    // O campo redução/acréscimo muitas vezes é apenas informativo da tabela ou já vem aplicado no Unitário.
-    const res = (q * u).toFixed(2);
+    let r = 1.0;
+    if (red !== undefined && red !== null && String(red).trim() !== '') {
+      const parsedR = parseFloat(String(red).replace(',', '.'));
+      if (!isNaN(parsedR) && parsedR > 0) {
+        r = parsedR;
+      }
+    }
+    const res = (q * u * r).toFixed(2);
     return (qtd.includes(',') || unit.includes(',')) ? res.replace('.', ',') : res;
   };
 
   const handleProcQtdChange = (procId: string, val: string) => {
     setProcFormState((prev) => {
       const current = prev[procId] || { codigo: '', quantidade: '1', valorUnitario: '0', reducaoAcrescimo: '', valor: '0' };
-      const novoTotal = recalcTotal(val, current.valorUnitario);
+      const novoTotal = recalcTotal(val, current.valorUnitario, current.reducaoAcrescimo);
       return {
         ...prev,
         [procId]: { ...current, quantidade: val, valor: novoTotal },
@@ -165,7 +187,7 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
   const handleProcValorUnitarioChange = (procId: string, val: string) => {
     setProcFormState((prev) => {
       const current = prev[procId] || { codigo: '', quantidade: '1', valorUnitario: '0', reducaoAcrescimo: '', valor: '0' };
-      const novoTotal = recalcTotal(current.quantidade, val);
+      const novoTotal = recalcTotal(current.quantidade, val, current.reducaoAcrescimo);
       return {
         ...prev,
         [procId]: { ...current, valorUnitario: val, valor: novoTotal },
@@ -176,7 +198,7 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
   const handleProcReducaoChange = (procId: string, val: string) => {
     setProcFormState((prev) => {
       const current = prev[procId] || { codigo: '', quantidade: '1', valorUnitario: '0', reducaoAcrescimo: '', valor: '0' };
-      const novoTotal = recalcTotal(current.quantidade, current.valorUnitario);
+      const novoTotal = recalcTotal(current.quantidade, current.valorUnitario, val);
       return {
         ...prev,
         [procId]: { ...current, reducaoAcrescimo: val, valor: novoTotal },
@@ -221,51 +243,199 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
     setExpandedRows({});
   };
 
-  const guiasFiltradas = guias.filter((g) => {
-    if (!busca) return true;
-    const term = busca.toLowerCase();
-    return (
-      g.carteira.toLowerCase().includes(term) ||
-      g.guia.toLowerCase().includes(term) ||
-      g.guiaPrestador.toLowerCase().includes(term) ||
-      g.senha.toLowerCase().includes(term)
-    );
-  });
+  // Mapeamento otimizado de inconsistências por número da guia
+  const mapaInconsistenciasPorGuia = useMemo(() => {
+    const mapa = new Map<string, { criticas: Inconsistency[]; avisos: Inconsistency[] }>();
 
-  const numConsultas = guias.filter((g) => g.tipoGuia === 'guiaConsulta').length;
-  const numSadt = guias.filter((g) => g.tipoGuia === 'guiaSP-SADT').length;
+    for (const inc of inconsistencias) {
+      // Procura número da guia na descrição (ex: "Guia nº 12345" ou "Guia 1")
+      const match = inc.desc.match(/Guia (?:nº )?([^\s|:]+)/i);
+      const guiaId = match ? match[1].trim() : null;
+
+      if (guiaId) {
+        if (!mapa.has(guiaId)) {
+          mapa.set(guiaId, { criticas: [], avisos: [] });
+        }
+        const bucket = mapa.get(guiaId)!;
+        if (isCritico(inc)) {
+          bucket.criticas.push(inc);
+        } else {
+          bucket.avisos.push(inc);
+        }
+      }
+    }
+    return mapa;
+  }, [inconsistencias]);
+
+  // Função para verificar se a guia tem glosa crítica pendente
+  const getInconsistenciasGuia = (guide: GuideItem) => {
+    const gNum1 = guide.guiaPrestador?.trim();
+    const gNum2 = guide.guia?.trim();
+    const gNum3 = String(guide.index);
+
+    const b1 = gNum1 ? mapaInconsistenciasPorGuia.get(gNum1) : null;
+    const b2 = gNum2 ? mapaInconsistenciasPorGuia.get(gNum2) : null;
+    const b3 = mapaInconsistenciasPorGuia.get(gNum3);
+
+    // Também verifica diretamente se há procedimento com dataExecucao vazia no formulário atual
+    const temDataVazia = guide.procedimentos?.some(p => {
+      const form = procFormState[p.id];
+      const dt = form ? form.dataExecucao : p.dataExecucao;
+      return !dt || dt.trim() === '';
+    });
+
+    const criticas = [
+      ...(b1?.criticas || []),
+      ...(b2?.criticas || []),
+      ...(b3?.criticas || [])
+    ];
+    const avisos = [
+      ...(b1?.avisos || []),
+      ...(b2?.avisos || []),
+      ...(b3?.avisos || [])
+    ];
+
+    return {
+      temCriticas: criticas.length > 0 || temDataVazia,
+      criticas,
+      avisos,
+      temDataVazia
+    };
+  };
+
+  const { numConsultas, numSadt, numCriticasTotal } = useMemo(() => {
+    let consultas = 0;
+    let sadt = 0;
+    let criticas = 0;
+    for (const g of guias) {
+      if (g.tipoGuia === 'guiaConsulta') consultas++;
+      else if (g.tipoGuia === 'guiaSP-SADT') sadt++;
+
+      const info = getInconsistenciasGuia(g);
+      if (info.temCriticas) {
+        criticas++;
+      }
+    }
+    return { numConsultas: consultas, numSadt: sadt, numCriticasTotal: criticas };
+  }, [guias, mapaInconsistenciasPorGuia, procFormState]);
+
+  const guiasFiltradas = useMemo(() => {
+    let list = guias;
+
+    // Filtro por Segmento de Status
+    if (filtroStatus === 'criticas') {
+      list = list.filter(g => getInconsistenciasGuia(g).temCriticas);
+    } else if (filtroStatus === 'consulta') {
+      list = list.filter(g => g.tipoGuia === 'guiaConsulta');
+    } else if (filtroStatus === 'sadt') {
+      list = list.filter(g => g.tipoGuia === 'guiaSP-SADT');
+    }
+
+    // Filtro por Texto de Busca
+    if (busca.trim()) {
+      const term = busca.trim().toLowerCase();
+      list = list.filter((g) =>
+        g.carteira.toLowerCase().includes(term) ||
+        g.guia.toLowerCase().includes(term) ||
+        g.guiaPrestador.toLowerCase().includes(term) ||
+        g.senha.toLowerCase().includes(term)
+      );
+    }
+
+    return list;
+  }, [guias, busca, filtroStatus, mapaInconsistenciasPorGuia, procFormState]);
 
   return (
     <div className="flex flex-col h-full bg-surface rounded-b-lg p-3 space-y-3 overflow-hidden text-foreground">
       {/* Top bar with count & search */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-border shrink-0 text-xs">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 font-bold text-foreground/90">
-            <Link className="w-4 h-4 text-primary" />
-            <span>Total de Guias: <strong className="text-primary font-mono">{guias.length}</strong></span>
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-2 border-b border-border shrink-0 text-xs">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Segmented Filter Control */}
+          <div className="flex items-center rounded-md border border-border/80 bg-background p-0.5 text-[11px]">
+            <button
+              onClick={() => setFiltroStatus('todas')}
+              className={cn(
+                "rounded px-2.5 py-1 font-medium transition-colors cursor-pointer",
+                filtroStatus === 'todas'
+                  ? "bg-surface-2 text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Todas ({guias.length})
+            </button>
+            <button
+              onClick={() => setFiltroStatus('criticas')}
+              className={cn(
+                "rounded px-2.5 py-1 font-medium transition-colors cursor-pointer flex items-center gap-1",
+                filtroStatus === 'criticas'
+                  ? "bg-crit text-crit-surface shadow-xs font-bold"
+                  : numCriticasTotal > 0
+                    ? "text-crit hover:bg-crit-surface/20"
+                    : "text-muted-foreground hover:text-foreground"
+              )}
+              title="Filtrar guias com dados pendentes ou glosas críticas"
+            >
+              <AlertCircle className="size-3" />
+              <span>Com Glosa ({numCriticasTotal})</span>
+            </button>
+            <button
+              onClick={() => setFiltroStatus('consulta')}
+              className={cn(
+                "rounded px-2.5 py-1 font-medium transition-colors cursor-pointer",
+                filtroStatus === 'consulta'
+                  ? "bg-surface-2 text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              Consultas ({numConsultas})
+            </button>
+            <button
+              onClick={() => setFiltroStatus('sadt')}
+              className={cn(
+                "rounded px-2.5 py-1 font-medium transition-colors cursor-pointer",
+                filtroStatus === 'sadt'
+                  ? "bg-surface-2 text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              SADT ({numSadt})
+            </button>
           </div>
-          <span className="text-gray-600">|</span>
-          <span className="text-muted-foreground">Consultas: <strong className="text-white font-mono">{numConsultas}</strong></span>
-          <span className="text-muted-foreground">SADT: <strong className="text-white font-mono">{numSadt}</strong></span>
+
+          <span className="text-border">|</span>
+
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <span>Mostrando: <strong className="text-foreground font-mono">{guiasFiltradas.length}</strong> de {guias.length}</span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button onClick={expandAll} className="text-[10px] bg-surface-2 hover:bg-surface-3 px-2 py-1 rounded transition-colors text-foreground/90">
-              Expandir Tudo
-            </button>
-            <button onClick={collapseAll} className="text-[10px] bg-surface-2 hover:bg-surface-3 px-2 py-1 rounded transition-colors text-foreground/90">
-              Recolher Tudo
-            </button>
-          </div>
-          <div className="relative w-64">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setTargetProcForModal(null);
+              setViasModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 text-[11px] bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 px-2.5 py-1 rounded transition-colors font-medium cursor-pointer"
+            title="Abrir tabela e regras de cálculo para dois olhos e vias de acesso distintas"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Cálculo 2 Olhos / Vias</span>
+            <span className="sm:hidden">2 Olhos</span>
+          </button>
+          <button onClick={expandAll} className="text-[10px] bg-surface-2 hover:bg-surface-3 px-2 py-1 rounded transition-colors text-foreground/90 cursor-pointer">
+            Expandir
+          </button>
+          <button onClick={collapseAll} className="text-[10px] bg-surface-2 hover:bg-surface-3 px-2 py-1 rounded transition-colors text-foreground/90 cursor-pointer">
+            Recolher
+          </button>
+          <div className="relative w-56">
             <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-muted-foreground" />
             <input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Filtrar por carteira, guia, Guia Prestador..."
-              className="w-full bg-background border border-border rounded pl-8 pr-3 py-1 text-xs text-foreground font-mono focus:outline-none focus:border-[#00b4d8]"
+              placeholder="Buscar guia, carteira, senha..."
+              className="w-full bg-background border border-border rounded pl-8 pr-3 py-1 text-xs text-foreground font-mono focus:outline-none focus:border-primary"
             />
           </div>
         </div>
@@ -344,22 +514,70 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                           </button>
                         )}
                       </td>
-                      {/* Index */}
-                      <td className="py-2 px-3 text-center text-muted-foreground font-bold">
-                        {guide.index}
+                      {/* Index & Glosa Status Indicator */}
+                      <td className="py-2 px-3 text-center font-bold">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {(() => {
+                            const info = getInconsistenciasGuia(guide);
+                            if (info.temCriticas) {
+                              const descGlosa = info.criticas[0]?.desc || 'Glosa Crítica Detectada';
+                              return (
+                                <span 
+                                  title={descGlosa}
+                                  className="inline-flex items-center justify-center size-4 rounded-full bg-crit-surface text-crit border border-crit/40 shrink-0"
+                                >
+                                  <AlertCircle className="size-3" />
+                                </span>
+                              );
+                            }
+                            if (info.avisos.length > 0) {
+                              return (
+                                <span 
+                                  title={`${info.avisos.length} aviso(s) para conferência`}
+                                  className="inline-flex items-center justify-center size-4 rounded-full bg-warn-surface text-warn border border-warn/40 shrink-0"
+                                >
+                                  <AlertTriangle className="size-3" />
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className="inline-block size-1.5 rounded-full bg-ok/60 shrink-0" title="Guia sem inconsistências" />
+                            );
+                          })()}
+                          <span className="text-muted-foreground">{guide.index}</span>
+                        </div>
                       </td>
 
                       {/* Guide Type */}
                       <td className="py-2 px-3 font-sans font-medium">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                            isConsulta
-                              ? 'bg-sky-950/60 text-sky-400 border border-sky-800/40'
-                              : 'bg-purple-950/60 text-purple-400 border border-purple-800/40'
-                          }`}
-                        >
-                          {isConsulta ? 'Consulta' : 'SADT'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase",
+                              isConsulta
+                                ? "bg-sky-950/60 text-sky-400 border border-sky-800/40"
+                                : "bg-purple-950/60 text-purple-400 border border-purple-800/40"
+                            )}
+                          >
+                            {isConsulta ? 'Consulta' : 'SADT'}
+                          </span>
+                          {onVerNoXml && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const info = getInconsistenciasGuia(guide);
+                                const linhaAlvo = info.criticas[0]?.linha || info.avisos[0]?.linha;
+                                if (linhaAlvo) {
+                                  onVerNoXml(linhaAlvo);
+                                }
+                              }}
+                              className="text-muted-foreground hover:text-foreground opacity-60 hover:opacity-100 p-0.5 rounded transition-opacity"
+                              title="Localizar início desta guia no editor XML"
+                            >
+                              <Code2 className="size-3" />
+                            </button>
+                          )}
+                        </div>
                       </td>
 
                       {/* Guia Prestador */}
@@ -435,20 +653,16 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                       {/* Action */}
                       <td className="py-1.5 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                          <button
                             onClick={() => onSincronizarGuia(guide, currentForm)}
                             title="Corrigir no XML"
-                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-2.5 py-1 rounded transition-all shadow-xs cursor-pointer"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-primary hover:bg-primary/90 text-primary-foreground px-2.5 py-1 rounded transition-transform duration-150 ease-out hover:scale-105 active:scale-95 shadow-xs cursor-pointer"
                           >
                             <RefreshCw className="w-3 h-3" />
                             <span className="hidden lg:inline">Corrigir</span>
-                          </motion.button>
+                          </button>
                           {onExcluirGuia && (
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                            <button
                               onClick={() => {
                                 if (confirmDelete === guide.id) {
                                   onExcluirGuia(guide);
@@ -459,7 +673,7 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                                 }
                               }}
                               title="Excluir guia do XML"
-                              className={`inline-flex items-center justify-center p-1 rounded transition-all cursor-pointer ${
+                              className={`inline-flex items-center justify-center p-1 rounded transition-transform duration-150 ease-out hover:scale-105 active:scale-95 cursor-pointer ${
                                 confirmDelete === guide.id
                                   ? 'bg-red-600 hover:bg-red-700 text-white px-2'
                                   : 'bg-[#e63946] hover:bg-[#c1121f] text-white'
@@ -470,7 +684,7 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                               ) : (
                                 <Trash2 className="w-3.5 h-3.5" />
                               )}
-                            </motion.button>
+                            </button>
                           )}
                         </div>
                       </td>
@@ -479,13 +693,14 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                     {isExpanded && guide.procedimentos && guide.procedimentos.length > 0 && (
                       <tr className="bg-surface border-b border-border">
                         <td colSpan={8} className="p-0">
-                          <div className="pl-12 pr-4 py-3 bg-background shadow-inner">
+                          <div className="pl-12 pr-4 py-3 bg-background shadow-inner transition-all duration-200 animate-in fade-in slide-in-from-top-1">
                             <h4 className="text-[10px] font-bold text-muted-foreground mb-2 uppercase tracking-wider">Procedimentos e Exames</h4>
                             <table className="w-full border-collapse">
                               <thead>
                                 <tr className="text-left text-[10px] text-muted-foreground border-b border-border">
                                   <th className="pb-1 font-semibold">Código</th>
                                   <th className="pb-1 font-semibold">Descrição</th>
+                                  <th className="pb-1 font-semibold text-center">Data Exec.</th>
                                   <th className="pb-1 font-semibold text-center">Qtde</th>
                                   <th className="pb-1 font-semibold text-right">Unitário (R$)</th>
                                   <th className="pb-1 font-semibold text-center">Redução/Acr.</th>
@@ -501,7 +716,9 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                                     valorUnitario: proc.valorUnitario,
                                     reducaoAcrescimo: proc.reducaoAcrescimo || '',
                                     valor: proc.valor,
+                                    dataExecucao: proc.dataExecucao || '',
                                   };
+                                  const isDataVazia = !currentProcForm.dataExecucao || currentProcForm.dataExecucao.trim() === '';
                                   const codeChanged = currentProcForm.codigo !== proc.codigo;
                                   const qtdChanged = currentProcForm.quantidade !== proc.quantidade;
                                   const unitChanged = currentProcForm.valorUnitario !== proc.valorUnitario;
@@ -525,13 +742,34 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                                       </td>
                                       <td className="py-1.5 text-muted-foreground text-[11px] truncate max-w-[200px]">{proc.descricao || '-'}</td>
                                       <td className="py-1.5 text-foreground/90 font-mono text-[11px] text-center">
-                                        <input
-                                          type="text"
-                                          value={currentProcForm.dataExecucao || ''}
-                                          onChange={(e) => handleProcDataExecucaoChange(proc.id, e.target.value)}
-                                          className="bg-background border border-border text-foreground text-[10px] p-0.5 rounded focus:border-[#00b4d8] focus:outline-none w-20 px-1 text-center font-mono"
-                                          placeholder="DD/MM/AAAA"
-                                        />
+                                        <div className="flex items-center justify-center gap-1">
+                                          <input
+                                            type="text"
+                                            value={currentProcForm.dataExecucao || ''}
+                                            onChange={(e) => handleProcDataExecucaoChange(proc.id, e.target.value)}
+                                            className={cn(
+                                              "text-[10px] p-0.5 rounded focus:outline-none w-24 px-1 text-center font-mono transition-colors",
+                                              isDataVazia
+                                                ? "border border-red-500/80 bg-red-500/10 text-red-200 placeholder:text-red-400/60 font-semibold focus:border-red-400"
+                                                : "bg-background border border-border text-foreground focus:border-primary"
+                                            )}
+                                            placeholder="AAAA-MM-DD"
+                                            title={isDataVazia ? `Alerta: Tag <dataExecucao> vazia na Guia ${guide.guiaPrestador || guide.guia || guide.id} (Risco de glosa imediata)` : "Data de Execução (AAAA-MM-DD)"}
+                                          />
+                                          {isDataVazia && (
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const hoje = new Date().toISOString().slice(0, 10);
+                                                handleProcDataExecucaoChange(proc.id, hoje);
+                                              }}
+                                              title="Preencher com data de hoje (AAAA-MM-DD)"
+                                              className="px-1 py-0.5 text-[9px] font-bold text-red-300 hover:text-white bg-red-500/20 hover:bg-red-500/40 rounded border border-red-500/40 cursor-pointer shrink-0"
+                                            >
+                                              Hoje
+                                            </button>
+                                          )}
+                                        </div>
                                       </td>
                                       
                                       <td className="py-1.5 text-foreground/90 font-mono text-[11px] text-center">
@@ -554,13 +792,66 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
                                       </td>
                                       
                                       <td className="py-1.5 text-foreground/90 font-mono text-[11px] text-center">
-                                        <input
-                                          type="text"
-                                          value={currentProcForm.reducaoAcrescimo}
-                                          onChange={(e) => handleProcReducaoChange(proc.id, e.target.value)}
-                                          className="bg-background border border-border text-foreground text-[10px] p-0.5 rounded focus:border-[#00b4d8] focus:outline-none w-12 px-1 text-center font-mono"
-                                          placeholder="1.00"
-                                        />
+                                        <div className="flex flex-col items-center gap-1">
+                                          <div className="flex items-center justify-center gap-1">
+                                            <input
+                                              type="text"
+                                              value={currentProcForm.reducaoAcrescimo}
+                                              onChange={(e) => handleProcReducaoChange(proc.id, e.target.value)}
+                                              className="bg-background border border-border text-foreground text-[10px] p-0.5 rounded focus:border-[#00b4d8] focus:outline-none w-12 px-1 text-center font-mono"
+                                              placeholder="1.00"
+                                            />
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setTargetProcForModal(proc.id);
+                                                setViasModalOpen(true);
+                                              }}
+                                              title="Ver regras de cálculo para 2 olhos e vias diferentes"
+                                              className="text-muted-foreground hover:text-primary p-0.5 transition-colors"
+                                            >
+                                              <Eye className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                          <div className="flex items-center gap-0.5 text-[8px] font-mono">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleProcReducaoChange(proc.id, '1.00')}
+                                              className={`px-1 py-0.2 rounded border transition-colors ${
+                                                currentProcForm.reducaoAcrescimo === '1.00' || currentProcForm.reducaoAcrescimo === ''
+                                                  ? 'bg-primary/20 border-primary/40 text-primary font-bold'
+                                                  : 'border-border text-muted-foreground hover:text-foreground'
+                                              }`}
+                                              title="1º Olho (Integral / 100%)"
+                                            >
+                                              1.00
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleProcReducaoChange(proc.id, '0.70')}
+                                              className={`px-1 py-0.2 rounded border transition-colors ${
+                                                currentProcForm.reducaoAcrescimo === '0.70'
+                                                  ? 'bg-primary/20 border-primary/40 text-primary font-bold'
+                                                  : 'border-border text-muted-foreground hover:text-foreground'
+                                              }`}
+                                              title="2º Olho / Via Diferente (70%)"
+                                            >
+                                              0.70
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleProcReducaoChange(proc.id, '0.50')}
+                                              className={`px-1 py-0.2 rounded border transition-colors ${
+                                                currentProcForm.reducaoAcrescimo === '0.50'
+                                                  ? 'bg-primary/20 border-primary/40 text-primary font-bold'
+                                                  : 'border-border text-muted-foreground hover:text-foreground'
+                                              }`}
+                                              title="Mesma Via de Acesso (50%)"
+                                            >
+                                              0.50
+                                            </button>
+                                          </div>
+                                        </div>
                                       </td>
 
                                       <td className="py-1.5 text-foreground/90 font-mono text-[11px] text-right">
@@ -624,6 +915,19 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({ guias, onSincronizarGu
           </table>
         )}
       </div>
+
+      <ViasAcessoModal
+        isOpen={viasModalOpen}
+        onClose={() => {
+          setViasModalOpen(false);
+          setTargetProcForModal(null);
+        }}
+        onAplicarFator={(fator) => {
+          if (targetProcForModal) {
+            handleProcReducaoChange(targetProcForModal, fator);
+          }
+        }}
+      />
     </div>
   );
 };

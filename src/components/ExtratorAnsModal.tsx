@@ -73,8 +73,22 @@ export const ExtratorAnsModal: React.FC<ExtratorAnsModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1d1e] border border-[#2d3235] rounded-xl p-6 w-full max-w-2xl space-y-5 text-gray-200 shadow-2xl relative overflow-hidden">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+      onClick={onFechar}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1a1d1e] border border-[#2d3235] rounded-xl p-6 w-full max-w-2xl space-y-5 text-gray-200 shadow-2xl relative overflow-hidden"
+      >
         {/* Glow accent */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#00b4d8] via-[#e63946] to-[#e9c46a]" />
 
@@ -246,7 +260,7 @@ export const ExtratorAnsModal: React.FC<ExtratorAnsModalProps> = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

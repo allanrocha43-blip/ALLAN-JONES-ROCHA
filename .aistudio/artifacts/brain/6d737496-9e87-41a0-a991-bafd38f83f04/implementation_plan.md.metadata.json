@@ -1,0 +1,6 @@
+{
+  "summary": "Plano de melhorias de Experiência do Usuário (UX) para o Sistema de Auditoria TISS, com foco em:\n1. Refinamento avançado da Tabela de Guias com filtros contextuais rápidos (Todas, Com Glosas Críticas, Consultas, SADT), badges de alerta visual por linha e indicador de inconsistências vinculadas.\n2. Assistente de Lote com Checklist interativo de 5 etapas para Envio ANS (Integridade XML, Glosas Críticas, Vias Cirúrgicas, Assinatura/HASH MD5 e Exportação Validada).\n3. Testes regressivos completos de funcionalidade, performance e build.",
+  "updatedAt": "2026-11-06T19:12:27.006864589Z",
+  "requestFeedback": true,
+  "userFacing": true
+}

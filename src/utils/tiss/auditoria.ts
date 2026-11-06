@@ -174,28 +174,23 @@ function executarAuditoriaDinamicaInterna(
   }
 
   const guiaRanges: GuiaLineRange[] = [];
-  const regexTodasGuias = clonarRegex(REGEX_TODAS_GUIAS);
-  let matchRange: RegExpExecArray | null;
-
-  while ((matchRange = regexTodasGuias.exec(conteudo)) !== null) {
-    const startIdx = matchRange.index;
-    const endIdx = startIdx + matchRange[0].length;
-    const startLine = localizador.linhaDe(startIdx);
-    const endLine = localizador.linhaDe(endIdx);
-    const bloco = matchRange[1];
-
-    const prestadorMatch = bloco.match(/<(?:[^:]+:)?numeroGuiaPrestador>([^<]+)<\//i);
-    const operadoraMatch = bloco.match(/<(?:[^:]+:)?numeroGuiaOperadora>([^<]+)<\//i);
-    const numeroGuia = (prestadorMatch && prestadorMatch[1].trim()) || (operadoraMatch && operadoraMatch[1].trim()) || '';
-
-    if (numeroGuia) {
-      guiaRanges.push({ startLine, endLine, numeroGuia });
-    }
-  }
 
   function getGuiaNumeroForLine(lineNum: number): string | null {
-    const found = guiaRanges.find(r => lineNum >= r.startLine && lineNum <= r.endLine);
-    return found ? found.numeroGuia : null;
+    let lo = 0;
+    let hi = guiaRanges.length - 1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >>> 1;
+      const r = guiaRanges[mid];
+      if (lineNum >= r.startLine && lineNum <= r.endLine) {
+        return r.numeroGuia;
+      }
+      if (lineNum < r.startLine) {
+        hi = mid - 1;
+      } else {
+        lo = mid + 1;
+      }
+    }
+    return null;
   }
 
   // MÓDULO ESTRUTURAL (Elemento Órfão Tracker TISS 4.01.00 & 3.05.00) e CÁLCULO DE TOTAIS
@@ -206,6 +201,7 @@ function executarAuditoriaDinamicaInterna(
   while ((matchBloco = regexTodasGuiasParaTotal.exec(conteudo)) !== null) {
     guideCounter++;
     const bloco = matchBloco[0];
+    const innerBloco = matchBloco[1];
     const tipoGuiaAtual = matchBloco[2];
     const ehConsulta = /^guiaConsulta$/i.test(tipoGuiaAtual);
     const ehSadt = /^guia(?:SP-?)?SADT$/i.test(tipoGuiaAtual);
@@ -215,8 +211,15 @@ function executarAuditoriaDinamicaInterna(
     // outros contextos), ambos já reconhecidos por TIPOS_DE_GUIA.
     const ehHonorarioIndividual = /^guiaHonorario(?:s|Individual)$/i.test(tipoGuiaAtual);
     const matchStart = matchBloco.index;
+    const matchEnd = matchStart + matchBloco[0].length;
     const linhaInicio = localizador.linhaDe(matchStart);
-    const gNum = getGuiaNumeroForLine(linhaInicio);
+    const linhaFim = localizador.linhaDe(matchEnd);
+    const prestadorMatchBloco = innerBloco.match(/<(?:[^:]+:)?numeroGuiaPrestador>([^<]+)<\//i);
+    const operadoraMatchBloco = innerBloco.match(/<(?:[^:]+:)?numeroGuiaOperadora>([^<]+)<\//i);
+    const gNum = (prestadorMatchBloco && prestadorMatchBloco[1].trim()) || (operadoraMatchBloco && operadoraMatchBloco[1].trim()) || '';
+    if (gNum) {
+      guiaRanges.push({ startLine: linhaInicio, endLine: linhaFim, numeroGuia: gNum });
+    }
     const prefix = gNum ? `Guia nº ${gNum} | ` : `Guia ${guideCounter} | `;
 
     // 0. Cálculo de Totais
@@ -859,6 +862,50 @@ function executarAuditoriaDinamicaInterna(
         }
       }
 
+      // 4.1 Validação de <dataExecucao> vazia ou ausente em procedimento executado (Glosa Crítica - Regra Python)
+      const dataExecTagMatch = bloco.match(/(<([a-zA-Z0-9_-]+:)?dataExecucao(?:\s[^>]*)?>([\s\S]*?)<\/\2dataExecucao>|<([a-zA-Z0-9_-]+:)?dataExecucao(?:\s[^>]*?)?\/>)/i);
+      const guiaInfo = gNum || 'Sem Número';
+      if (dataExecTagMatch) {
+        const fullTag = dataExecTagMatch[0];
+        const val = (dataExecTagMatch[3] ?? '').trim();
+        if (!val) {
+          const dtOffset = matchStart + bloco.indexOf(fullTag);
+          const dtLine = localizador.linhaDe(dtOffset);
+          inconsistencias.push({
+            id: `glosa-dataexec-vazia-${dtLine}-${dtOffset}`,
+            linha: dtLine,
+            tipo: "Crítico",
+            desc: `${prefix}Linha ${dtLine}: Alerta: Tag <dataExecucao> vazia na Guia ${guiaInfo} (procedimento ${cod}). Risco de glosa imediata junto à operadora.`,
+            original: fullTag,
+            sugestao: "",
+            seguro: false
+          });
+        } else if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+          const dtOffset = matchStart + bloco.indexOf(fullTag);
+          const dtLine = localizador.linhaDe(dtOffset);
+          inconsistencias.push({
+            id: `glosa-dataexec-invalida-${dtLine}-${dtOffset}`,
+            linha: dtLine,
+            tipo: "Crítico",
+            desc: `${prefix}Linha ${dtLine}: Formato inválido em <dataExecucao> na Guia ${guiaInfo} ("${val}"). O padrão TISS exige formato AAAA-MM-DD.`,
+            original: fullTag,
+            sugestao: "",
+            seguro: false
+          });
+        }
+      } else {
+        // Tag ausente no procedimento
+        inconsistencias.push({
+          id: `glosa-dataexec-ausente-${procLine}-${matchStart}`,
+          linha: procLine,
+          tipo: "Crítico",
+          desc: `${prefix}Linha ${procLine}: Alerta: Tag <dataExecucao> vazia na Guia ${guiaInfo} (ausente no procedimento ${cod}). Risco de glosa imediata junto à operadora.`,
+          original: "[TAG AUSENTE: <dataExecucao>]",
+          sugestao: "",
+          seguro: false
+        });
+      }
+
       // 5. Regras específicas por versão
       if (versaoTiss.startsWith("4.0")) {
         if (!/<(?:[^:]+:)?sequencialItem/i.test(bloco)) {
@@ -900,7 +947,7 @@ function executarAuditoriaDinamicaInterna(
     'codigoProcedimento', 'valorTotal', 'valorProcedimentos', 
     'registroANS', 'codigoPrestadorNaOperadora', 'numeroCarteira',
     'nomeProfissional', 'conselhoProfissional', 'numeroConselhoProfissional',
-    'CBOS', 'dataExecucao', 'horaInicial', 'horaFinal',
+    'CBOS', 'horaInicial', 'horaFinal',
     'cnpjContratado', 'cpfContratado', 'codigoProfissional', 'codigoTabela'
   ];
 
@@ -1031,13 +1078,13 @@ function executarAuditoriaDinamicaInterna(
       });
     }
 
-    // Fator comercial 0.70
+    // Fator 0.70 (Regra CBHPM / ANS para 2º Olho ou Via de Acesso Diferente)
     if (linha.includes('>0.70<') && linha.includes('reducaoAcrescimo')) {
       inconsistencias.push({
         id: `aviso-fator-${numLinha}`,
         linha: numLinha,
         tipo: "Aviso",
-        desc: "Fator comercial 0.70 (redução por cumulatividade ANS) — confirme que é intencional para esta guia antes de faturar.",
+        desc: "Fator 0.70 identificado (Regra CBHPM/ANS para 2º olho em via cirúrgica diferente / bilateralidade). Certifique-se de que a guia possui o 1º procedimento com fator 1.00.",
         original: linha,
         sugestao: "", // sem autocorreção
         seguro: false // CRÍTICO: nunca sobrescrever um valor de negócio válido automaticamente

@@ -9,7 +9,7 @@
  */
 
 import { Inconsistency, GuideItem, ProcedimentoItem } from '../../types/tiss';
-import { REGEX_TODAS_GUIAS, REGEX_BLOCO_PROCEDIMENTO, clonarRegex } from './regexPatterns';
+import { REGEX_TODAS_GUIAS, REGEX_BLOCO_PROCEDIMENTO, TIPOS_DE_GUIA, clonarRegex } from './regexPatterns';
 import { executarAuditoriaDinamica } from './auditoria';
 
 export function sincronizarProcedimento(
@@ -128,10 +128,28 @@ export function sincronizarProcedimento(
 
   // Sincronizar Data de Execução/Atendimento
   if (dataExecucaoMudou && novosDados.dataExecucao !== undefined) {
-    const nData = novosDados.dataExecucao.trim();
-    applyReplace('dataExecucao', nData);
-    applyReplace('dataAtendimento', nData);
-    applyReplace('data', nData);
+    let nData = novosDados.dataExecucao.trim();
+    // Se o usuário digitou no formato brasileiro DD/MM/AAAA, converte para ISO AAAA-MM-DD padrão TISS
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(nData)) {
+      const parts = nData.split('/');
+      nData = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    const repDataExec = applyReplace('dataExecucao', nData);
+    const repDataAtend = applyReplace('dataAtendimento', nData);
+    const repData = applyReplace('data', nData);
+
+    // Se nenhuma tag de data existia no bloco, insere <dataExecucao> preservando o namespace
+    if (!repDataExec && !repDataAtend && !repData && nData) {
+      const nsMatch = blocoAlvo.match(/<([a-zA-Z0-9_-]+:)?(?:procedimentoExecutado|procedimento|procedimentoExame)/i);
+      const ns = nsMatch && nsMatch[1] ? nsMatch[1] : '';
+      if (new RegExp(`</(?:[^:>]+:)?codigoProcedimento>`, 'i').test(blocoAlvo)) {
+        blocoAlvo = blocoAlvo.replace(new RegExp(`(</(?:[^:>]+:)?codigoProcedimento>)`, 'i'), `$1\n      <${ns}dataExecucao>${nData}</${ns}dataExecucao>`);
+        alterado = true;
+      } else {
+        blocoAlvo = blocoAlvo.replace(new RegExp(`(<(?:[^:>]+:)?(?:procedimentoExecutado|procedimento|procedimentoExame)[^>]*>)`, 'i'), `$1\n      <${ns}dataExecucao>${nData}</${ns}dataExecucao>`);
+        alterado = true;
+      }
+    }
   }
 
   // 2. Sincronizar Valor Total se alterado
@@ -190,7 +208,8 @@ export function sincronizarDadosGuia(
 
   if (coordenadasValidas) {
     const trecho = conteudo.substring(startIdx, endIdx);
-    if (/<(?:[^:>]+:)?(?:guiaConsulta|guiaSP-SADT|guiaResumoInternacao|guiaHonorarioIndividual|guiaOdontologia)/i.test(trecho)) {
+    const tiposRegex = new RegExp(`<(?:[^:>]+:)?(?:${TIPOS_DE_GUIA.join('|')})`, 'i');
+    if (tiposRegex.test(trecho)) {
       blocoAlvo = trecho;
     } else {
       coordenadasValidas = false;
@@ -322,7 +341,10 @@ export function aplicarCorrecaoIndividual(
       // Linha substituída por vazia: remove para que a linha de baixo suba e preencha o espaço
       linhas.splice(idx, 1);
     } else {
-      linhas[idx] = erro.sugestao;
+      const matchIndent = linhas[idx].match(/^(\s*)/);
+      const indent = matchIndent ? matchIndent[1] : '';
+      const sugestaoTrimmed = erro.sugestao.trim();
+      linhas[idx] = indent + sugestaoTrimmed;
     }
     return { novoConteudo: linhas.join('\n'), sucesso: true };
   } else {

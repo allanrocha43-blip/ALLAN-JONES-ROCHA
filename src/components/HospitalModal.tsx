@@ -24,8 +24,22 @@ export const HospitalModal: React.FC<HospitalModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-      <div className="bg-[#1a1d1e] border border-[#2d3235] rounded-lg p-5 w-full max-w-md space-y-4 text-gray-200 shadow-2xl">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 bg-black/75 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+      onClick={onFechar}
+    >
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#1a1d1e] border border-[#2d3235] rounded-xl p-5 w-full max-w-md space-y-4 text-gray-200 shadow-2xl"
+      >
         <div className="flex items-center justify-between border-b border-[#2d3235] pb-3">
           <h3 className="text-sm font-bold text-[#00b4d8] flex items-center gap-2">
             <Building2 className="w-4 h-4" />
@@ -75,7 +89,7 @@ export const HospitalModal: React.FC<HospitalModalProps> = ({
             </motion.button>
           </div>
         </form>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };

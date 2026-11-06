@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, KeyRound, CheckCircle2, AlertTriangle, Copy, RefreshCw, FileText, Check, Code, Hash } from 'lucide-react';
 import { calcularHashMD5Tiss } from '../utils/tissAuditor';
@@ -452,14 +452,19 @@ export const HashReaderModal: React.FC<HashReaderModalProps> = ({
     }
   }, [conteudoXmlAtivo, origem]);
 
-  if (!isOpen) return null;
+  // Extrai o hash informado no XML com memoização (evita reprocessar em re-renders)
+  const hashTagMatch = useMemo(() => {
+    if (!isOpen) return null;
+    return xmlTrabalho.match(/<((?:[^:>]+:)?hash)>([^<]+)<\/((?:[^:>]+:)?hash)>/i);
+  }, [xmlTrabalho, isOpen]);
 
-  // Extrai o hash informado no XML
-  const hashTagMatch = xmlTrabalho.match(/<((?:[^:>]+:)?hash)>([^<]+)<\/((?:[^:>]+:)?hash)>/i);
   const hashInformado = hashTagMatch ? hashTagMatch[2].trim() : null;
 
-  // Calcula com o novo motor ANS
-  const { hashCalculado, stringConcatenada, erroMsg } = calcularHashMD5Tiss(xmlTrabalho);
+  // Calcula com o novo motor ANS com memoização
+  const { hashCalculado, stringConcatenada, erroMsg } = useMemo(() => {
+    if (!isOpen) return { hashCalculado: null, stringConcatenada: '', erroMsg: undefined };
+    return calcularHashMD5Tiss(xmlTrabalho);
+  }, [xmlTrabalho, isOpen]);
 
   const hashesConferem =
     hashInformado &&
@@ -501,13 +506,23 @@ export const HashReaderModal: React.FC<HashReaderModalProps> = ({
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 10 }}
-          className="bg-[#181a1b] border border-[#2d3235] rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-gray-200"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={onClose}
         >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 8 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#181a1b] border border-[#2d3235] rounded-xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden text-gray-200"
+          >
           {/* Header */}
           <div className="px-6 py-4 border-b border-[#2d3235] bg-[#121415] flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -792,7 +807,8 @@ export const HashReaderModal: React.FC<HashReaderModalProps> = ({
             </div>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
+      )}
     </AnimatePresence>
   );
 };

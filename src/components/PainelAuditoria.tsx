@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CircleAlert, AlertTriangle, Info, Check } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Inconsistency } from '../types/tiss';
@@ -18,9 +19,15 @@ export function PainelAuditoria({
   onViewInXml: (linha: number) => void,
   className?: string
 }) {
-  const numCrit = inconsistencias.filter(i => isCritico(i)).length;
-  const numWarn = inconsistencias.length - numCrit;
-  const safeCount = inconsistencias.filter(i => i.seguro).length;
+  const { numCrit, numWarn, safeCount } = useMemo(() => {
+    let crit = 0;
+    let safe = 0;
+    for (const inc of inconsistencias) {
+      if (isCritico(inc)) crit++;
+      if (inc.seguro) safe++;
+    }
+    return { numCrit: crit, numWarn: inconsistencias.length - crit, safeCount: safe };
+  }, [inconsistencias]);
 
   return (
     <aside className={cn("flex w-full shrink-0 flex-col border-t border-border bg-surface lg:w-96 lg:border-l lg:border-t-0", className)}>

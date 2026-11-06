@@ -4,6 +4,7 @@ import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import CodeMirror from '@uiw/react-codemirror';
 import { xml } from '@codemirror/lang-xml';
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { AnimatePresence } from "motion/react";
 import {
   AlertTriangle,
   Check,
@@ -19,6 +20,7 @@ import {
   ChevronDown,
   Sun,
   Loader2,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "./lib/utils";
 import { LoadedFile, AuditResult, Inconsistency, GuideItem, ProcedimentoItem } from "./types/tiss";
@@ -33,6 +35,7 @@ import { ExtratorAnsModal } from "./components/ExtratorAnsModal";
 import { SaveAsModal } from "./components/SaveAsModal";
 import { HashReaderModal } from "./components/HashReaderModal";
 import { CriticalAuditPopup } from "./components/CriticalAuditPopup";
+import { AssistenteEnvioAnsModal } from "./components/AssistenteEnvioAnsModal";
 import { exportarXmlValidadoComHash, sincronizarDadosGuia, sincronizarProcedimento, aplicarCorrecaoIndividual, formatXmlBruto } from "./utils/tissAuditor";
 import { GuidesTable } from "./components/GuidesTable";
 
@@ -57,6 +60,7 @@ export default function App() {
   const [modalSaveAsAberto, setModalSaveAsAberto] = useState(false);
   const [modalHashReaderAberto, setModalHashReaderAberto] = useState(false);
   const [modalCriticalAberto, setModalCriticalAberto] = useState(false);
+  const [modalAssistenteAberto, setModalAssistenteAberto] = useState(false);
   const [criticalErrors, setCriticalErrors] = useState<Inconsistency[]>([]);
   const shownCriticalForFile = useRef<Set<string>>(new Set());
 
@@ -94,11 +98,31 @@ export default function App() {
   }, []);
 
   const arquivoAtivo = arquivos.find((a) => a.id === arquivoAtivoId);
+  const [debouncedConteudo, setDebouncedConteudo] = useState<string>(arquivoAtivo?.conteudo || '');
+
+  useEffect(() => {
+    if (!arquivoAtivo) {
+      setDebouncedConteudo('');
+      return;
+    }
+    // Para lotes pequenos (<50KB), atualização instantânea; para lotes maiores, debounce suave de 200ms
+    const isSmall = arquivoAtivo.conteudo.length < 50_000;
+    if (isSmall) {
+      setDebouncedConteudo(arquivoAtivo.conteudo);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedConteudo(arquivoAtivo.conteudo);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [arquivoAtivo?.conteudo, arquivoAtivo?.id]);
+
   const audit = useMemo(() => {
     if (!arquivoAtivo) return null;
-    return executarAuditoriaDinamica(arquivoAtivo.conteudo);
+    const xmlToAudit = debouncedConteudo || arquivoAtivo.conteudo;
+    return executarAuditoriaDinamica(xmlToAudit);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [arquivoAtivo?.conteudo, scanTrigger]);
+  }, [debouncedConteudo, scanTrigger, arquivoAtivo?.id]);
 
   useEffect(() => {
     if (audit && arquivoAtivo) {
@@ -153,14 +177,12 @@ export default function App() {
   const handleProcessarLote = () => {
     if (!arquivoAtivo) return;
     setIsScanning(true);
-    // Simular o tempo de processamento para reforçar que é uma nova varredura
+    setDebouncedConteudo(arquivoAtivo.conteudo);
     setTimeout(() => {
       setScanTrigger(prev => prev + 1);
       setIsScanning(false);
-      
-      // Permitir que o alerta crítico apareça novamente nesta varredura se necessário
       shownCriticalForFile.current.delete(arquivoAtivo.id);
-    }, 600);
+    }, 350);
   };
 
   const handleExcluirLote = (id: string, e: React.MouseEvent) => {
@@ -264,19 +286,23 @@ export default function App() {
 
   return (
     <div className="flex h-screen min-h-0 w-full flex-col bg-background text-foreground">
-      {modalHospitalAberto && (
-        <HospitalModal
-          nomeAtual={nomeHospital}
-          onSalvar={(novo) => setNomeHospital(novo)}
-          onFechar={() => setModalHospitalAberto(false)}
-        />
-      )}
-      {modalExtratorAnsAberto && (
-        <ExtratorAnsModal
-          onFechar={() => setModalExtratorAnsAberto(false)}
-          onAplicarRazaoSocial={(novoNome) => setNomeHospital(novoNome)}
-        />
-      )}
+      <AnimatePresence>
+        {modalHospitalAberto && (
+          <HospitalModal
+            nomeAtual={nomeHospital}
+            onSalvar={(novo) => setNomeHospital(novo)}
+            onFechar={() => setModalHospitalAberto(false)}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {modalExtratorAnsAberto && (
+          <ExtratorAnsModal
+            onFechar={() => setModalExtratorAnsAberto(false)}
+            onAplicarRazaoSocial={(novoNome) => setNomeHospital(novoNome)}
+          />
+        )}
+      </AnimatePresence>
       <SaveAsModal
         isOpen={modalSaveAsAberto}
         nomeAtual={arquivoAtivo?.nome || 'lote_tiss.xml'}
@@ -303,6 +329,15 @@ export default function App() {
         onClose={() => setModalCriticalAberto(false)}
         errors={criticalErrors}
       />
+      <AssistenteEnvioAnsModal
+        isOpen={modalAssistenteAberto}
+        onClose={() => setModalAssistenteAberto(false)}
+        audit={audit}
+        nomeArquivo={arquivoAtivo?.nome}
+        onIrParaAba={(targetAba) => setAba(targetAba)}
+        onAbrirHashModal={() => setModalHashReaderAberto(true)}
+        onExportarValidado={handleExport}
+      />
       <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-border/60 bg-background px-6">
         <div className="flex min-w-0 items-center gap-8">
           <div className="flex min-w-0 items-center gap-3">
@@ -328,6 +363,14 @@ export default function App() {
             </button>
             <button onClick={() => setModalExtratorAnsAberto(true)} className="flex items-center gap-1.5 rounded-md border border-info/30 bg-info/5 px-2.5 py-1.5 text-[12px] font-medium text-info transition-all duration-200 hover:bg-info/10 active:scale-[0.98]">
               Extrator ANS IA
+            </button>
+            <button 
+              onClick={() => setModalAssistenteAberto(true)} 
+              className="flex items-center gap-1.5 rounded-md border border-ok/40 bg-ok/10 px-2.5 py-1.5 text-[12px] font-medium text-ok transition-all duration-200 hover:bg-ok/20 active:scale-[0.98]"
+              title="Assistente de Envio ANS e Checklist de Lote"
+            >
+              <ShieldCheck className="size-3.5" />
+              Checklist ANS
             </button>
           </div>
           {audit && (
@@ -514,22 +557,27 @@ export default function App() {
             </div>
           ) : (
             <>
-              <div className={cn("min-h-0 flex-1 flex-col", aba === "guias" ? "flex" : "hidden")}>
+              <div className={cn("min-h-0 flex-1 flex-col transition-opacity duration-150", aba === "guias" ? "flex animate-in fade-in duration-150" : "hidden")}>
                 <GuidesTable 
                   guias={audit?.guias || []} 
+                  inconsistencias={audit?.inconsistencias || []}
+                  onVerNoXml={(linha) => {
+                    setLinhaDestaque(linha);
+                    setAba('split');
+                  }}
                   onSincronizarGuia={handleSincronizarGuia}
                   onSincronizarProcedimento={handleSincronizarProcedimento}
                   onExcluirGuia={handleExcluirGuia}
                   onExcluirProcedimento={handleExcluirProcedimento}
                 />
               </div>
-              <div className={cn("min-h-0 flex-1 flex-col lg:flex-row", aba !== "guias" ? "flex" : "hidden")}>
-                <section className={cn("flex min-h-0 min-w-0 flex-1 flex-col", (aba === "split" || aba === "raw") ? "flex" : "hidden")}>
+              <div className={cn("min-h-0 flex-1 flex-col lg:flex-row transition-opacity duration-150", aba !== "guias" ? "flex animate-in fade-in duration-150" : "hidden")}>
+                <section className={cn("flex min-h-0 min-w-0 flex-1 flex-col transition-all duration-150", (aba === "split" || aba === "raw") ? "flex animate-in fade-in duration-150" : "hidden")}>
                   {avancado ? <Editor arquivo={arquivoAtivo} inconsistencias={audit?.inconsistencias || []} linhaDestaque={linhaDestaque} onOpenHash={() => setModalHashReaderAberto(true)} onOpenSaveAs={() => setModalSaveAsAberto(true)} onUpdateConteudo={(c) => { setArquivos(prev => prev.map(a => a.id === arquivoAtivo!.id ? { ...a, conteudo: c, ultimaAtualizacao: new Date() } : a)) }} /> : <ResumoSimples audit={audit} />}
                 </section>
                 <PainelAuditoria 
                   className={cn(
-                    (aba === "split" || aba === "corr") ? "flex" : "hidden",
+                    (aba === "split" || aba === "corr") ? "flex animate-in fade-in duration-150" : "hidden",
                     aba === "corr" ? "lg:w-full lg:border-l-0" : ""
                   )}
                   avancado={avancado} 
@@ -684,7 +732,8 @@ function Editor({ arquivo, inconsistencias, linhaDestaque, onOpenHash, onOpenSav
     let currentLine = 1;
     let lastNewlinePos = -1;
 
-    while (pos < lowerText.length) {
+    const MAX_MATCHES = 500;
+    while (pos < lowerText.length && results.length < MAX_MATCHES) {
       const idx = lowerText.indexOf(query, pos);
       if (idx === -1) break;
 
