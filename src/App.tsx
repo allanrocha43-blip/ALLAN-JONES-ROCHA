@@ -38,6 +38,13 @@ import { CriticalAuditPopup } from "./components/CriticalAuditPopup";
 import { AssistenteEnvioAnsModal } from "./components/AssistenteEnvioAnsModal";
 import { exportarXmlValidadoComHash, sincronizarDadosGuia, sincronizarProcedimento, aplicarCorrecaoIndividual, formatXmlBruto } from "./utils/tissAuditor";
 import { GuidesTable } from "./components/GuidesTable";
+import { startKeepAlive } from "./utils/keepAlive";
+import {
+  loadWorkspaceFiles,
+  loadWorkspaceMeta,
+  saveWorkspaceFiles,
+  saveWorkspaceMeta,
+} from "./utils/workspaceStorage";
 
 type Severity = "crit" | "warn" | "info";
 
@@ -49,12 +56,14 @@ const sevToken: Record<Severity | "ok", { text: string; bg: string; border: stri
 };
 
 export default function App() {
-  const [dark, setDark] = useState(true);
-  const [avancado, setAvancado] = useState(true);
-  const [aba, setAba] = useState("split");
+  const initialMeta = useMemo(() => loadWorkspaceMeta(), []);
+
+  const [dark, setDark] = useState(initialMeta.dark ?? true);
+  const [avancado, setAvancado] = useState(initialMeta.avancado ?? true);
+  const [aba, setAba] = useState(initialMeta.aba ?? "split");
   const [linhaDestaque, setLinhaDestaque] = useState<number | null>(null);
 
-  const [nomeHospital, setNomeHospital] = useState("HOSPITAL H OLHOS");
+  const [nomeHospital, setNomeHospital] = useState(initialMeta.nomeHospital ?? "HOSPITAL H OLHOS");
   const [modalHospitalAberto, setModalHospitalAberto] = useState(false);
   const [modalExtratorAnsAberto, setModalExtratorAnsAberto] = useState(false);
   const [modalSaveAsAberto, setModalSaveAsAberto] = useState(false);
@@ -65,7 +74,8 @@ export default function App() {
   const shownCriticalForFile = useRef<Set<string>>(new Set());
 
   const [arquivos, setArquivos] = useState<LoadedFile[]>([]);
-  const [arquivoAtivoId, setArquivoAtivoId] = useState<string | null>(null);
+  const [arquivoAtivoId, setArquivoAtivoId] = useState<string | null>(initialMeta.arquivoAtivoId ?? null);
+  const workspaceHydrated = useRef(false);
 
   const [isScanning, setIsScanning] = useState(false);
   const [scanTrigger, setScanTrigger] = useState(0);
@@ -73,6 +83,11 @@ export default function App() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
+
+  // Mantém o servidor aquecido silenciosamente enquanto o app estiver aberto
+  useEffect(() => {
+    return startKeepAlive();
+  }, []);
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -84,18 +99,74 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
+  // Restaura lotes salvos localmente (IndexedDB) ou carrega o exemplo inicial
   useEffect(() => {
-    const initialFile: LoadedFile = {
-      id: "lote-exemplo-1",
-      nome: "lote_tiss_305_exemplo.xml",
-      conteudo: SAMPLE_TISS_WITH_ERRORS,
-      tamanhoBytes: new Blob([SAMPLE_TISS_WITH_ERRORS]).size,
-      dataCarregamento: new Date(),
-      ultimaAtualizacao: new Date(),
+    let cancelled = false;
+    (async () => {
+      const savedFiles = await loadWorkspaceFiles();
+      if (cancelled) return;
+      if (savedFiles && savedFiles.length > 0) {
+        savedFiles.forEach((f) => shownCriticalForFile.current.add(f.id));
+        setArquivos(savedFiles);
+        setArquivoAtivoId((prev) =>
+          prev && savedFiles.some((f) => f.id === prev) ? prev : savedFiles[0].id
+        );
+      } else {
+        const initialFile: LoadedFile = {
+          id: "lote-exemplo-1",
+          nome: "lote_tiss_305_exemplo.xml",
+          conteudo: SAMPLE_TISS_WITH_ERRORS,
+          tamanhoBytes: new Blob([SAMPLE_TISS_WITH_ERRORS]).size,
+          dataCarregamento: new Date(),
+          ultimaAtualizacao: new Date(),
+        };
+        setArquivos([initialFile]);
+        setArquivoAtivoId(initialFile.id);
+      }
+      workspaceHydrated.current = true;
+    })();
+    return () => {
+      cancelled = true;
     };
-    setArquivos([initialFile]);
-    setArquivoAtivoId(initialFile.id);
   }, []);
+
+  // Salva preferências e guia ativa automaticamente
+  useEffect(() => {
+    saveWorkspaceMeta({
+      arquivoAtivoId,
+      nomeHospital,
+      aba,
+      avancado,
+      dark,
+    });
+  }, [arquivoAtivoId, nomeHospital, aba, avancado, dark]);
+
+  // Persiste os arquivos XML e edições em IndexedDB com debounce suave
+  useEffect(() => {
+    if (!workspaceHydrated.current) return;
+    const timer = window.setTimeout(() => {
+      void saveWorkspaceFiles(arquivos);
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [arquivos]);
+
+  // Garante gravação imediata caso o navegador suspenda a aba
+  useEffect(() => {
+    const flushSave = () => {
+      if (workspaceHydrated.current) {
+        void saveWorkspaceFiles(arquivos);
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    };
+    window.addEventListener('pagehide', flushSave);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('pagehide', flushSave);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [arquivos]);
 
   const arquivoAtivo = arquivos.find((a) => a.id === arquivoAtivoId);
   const [debouncedConteudo, setDebouncedConteudo] = useState<string>(arquivoAtivo?.conteudo || '');
@@ -526,9 +597,15 @@ export default function App() {
               ))}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] text-muted-foreground transition-all duration-200 hover:text-foreground active:scale-[0.97]">
-                Relatório
-              </button>
+              <a
+                href="/README.txt"
+                download="README.txt"
+                className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-[11px] text-muted-foreground transition-all duration-200 hover:text-foreground active:scale-[0.97]"
+                title="Baixar Manual e Documentação do Sistema (README.txt)"
+              >
+                <FileCode2 className="size-3.5" />
+                README (.txt)
+              </a>
               <button 
                 onClick={handleProcessarLote}
                 disabled={isScanning || !arquivoAtivo}

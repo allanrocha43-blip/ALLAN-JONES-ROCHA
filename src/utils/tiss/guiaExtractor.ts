@@ -34,6 +34,15 @@ export function extrairGuias(conteudo: string): GuideItem[] {
     const prestadorMatch = bloco.match(/<(?:[^:]+:)?numeroGuiaPrestador>([^<]*)<\//);
     const guiaPrestador = prestadorMatch ? prestadorMatch[1].trim() : "";
 
+    const nomeMatch = bloco.match(/<(?:[^:]+:)?nomeBeneficiario>([^<]*)<\//i);
+    const nomeBeneficiario = nomeMatch ? nomeMatch[1].trim() : undefined;
+
+    const sexoMatch = bloco.match(/<(?:[^:]+:)?(?:sexo|sexoBeneficiario)>([^<]*)<\//i);
+    const sexo = sexoMatch ? sexoMatch[1].trim() : undefined;
+
+    const dtNascMatch = bloco.match(/<(?:[^:]+:)?(?:dataNascimento|dataNascimentoBeneficiario)>([^<]*)<\//i);
+    const dataNascimento = dtNascMatch ? dtNascMatch[1].trim() : undefined;
+
     const procedimentos: ProcedimentoItem[] = [];
     const regexBlocoProcedimento = clonarRegex(REGEX_BLOCO_PROCEDIMENTO);
     let procMatch: RegExpExecArray | null;
@@ -99,6 +108,9 @@ export function extrairGuias(conteudo: string): GuideItem[] {
       senha,
       guia,
       guiaPrestador,
+      nomeBeneficiario,
+      sexo,
+      dataNascimento,
       procedimentos
     });
   }

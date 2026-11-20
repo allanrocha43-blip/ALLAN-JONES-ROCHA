@@ -11,7 +11,8 @@ async function startServer() {
 
   // API routes FIRST
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.json({ status: 'ok', uptime: Math.floor(process.uptime()) });
   });
 
   app.post('/api/extrair-operadora', async (req, res) => {
@@ -87,11 +88,21 @@ FORMATO OBRIGATÓRIO:
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
+    const vitePromise = createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
-    app.use(vite.middlewares);
+    vitePromise.catch((err) => {
+      console.error('Failed to initialize Vite dev server:', err);
+    });
+    app.use(async (req, res, next) => {
+      try {
+        const vite = await vitePromise;
+        vite.middlewares(req, res, next);
+      } catch (err) {
+        next(err);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
@@ -100,9 +111,21 @@ FORMATO OBRIGATÓRIO:
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Mantém conexões HTTP persistentes compatíveis com proxies reversos / Cloud Run
+  server.keepAliveTimeout = 65_000;
+  server.headersTimeout = 66_000;
 }
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (process kept alive):', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection (process kept alive):', reason);
+});
 
 startServer();

@@ -150,4 +150,111 @@ describe('Formatação de XML (formatXmlBruto e formatarEHarmonizarXml)', () => 
     expect(auditFmt.guias.length).toBe(auditOrig.guias.length);
     expect(auditFmt.inconsistencias.length).toBe(auditOrig.inconsistencias.length);
   });
+
+  it('executarAuditoriaDinamica detecta inconsistência biológica de sexo e valor zerado em XML completo', () => {
+    const xmlComErroBiologico = `<?xml version="1.0" encoding="ISO-8859-1"?>
+<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
+  <ans:cabecalho>
+    <ans:Padrao>4.01.00</ans:Padrao>
+  </ans:cabecalho>
+  <ans:prestadorParaOperadora>
+    <ans:loteGuias>
+      <ans:numeroLote>001</ans:numeroLote>
+      <ans:guiasTISS>
+        <ans:guiaSP-SADT>
+          <ans:cabecalhoGuia>
+            <ans:numeroGuiaPrestador>GUIA-BIO-01</ans:numeroGuiaPrestador>
+          </ans:cabecalhoGuia>
+          <ans:dadosBeneficiario>
+            <ans:numeroCarteira>123456</ans:numeroCarteira>
+            <ans:sexo>M</ans:sexo>
+          </ans:dadosBeneficiario>
+          <ans:procedimentosExecutados>
+            <ans:procedimentoExecutado>
+              <ans:dataExecucao>2026-05-10</ans:dataExecucao>
+              <ans:procedimento>
+                <ans:codigoProcedimento>31309054</ans:codigoProcedimento>
+              </ans:procedimento>
+              <ans:valorTotal>1500.00</ans:valorTotal>
+            </ans:procedimentoExecutado>
+          </ans:procedimentosExecutados>
+        </ans:guiaSP-SADT>
+      </ans:guiasTISS>
+    </ans:loteGuias>
+  </ans:prestadorParaOperadora>
+</ans:mensagemTISS>`;
+
+    const resultado = executarAuditoriaDinamica(xmlComErroBiologico);
+    const erroSexo = resultado.inconsistencias.find(i => i.id.startsWith('regra-sexo-m'));
+    expect(erroSexo).toBeDefined();
+    expect(erroSexo?.tipo).toBe('Crítico');
+    expect(erroSexo?.desc).toContain('exclusivo do sexo feminino');
+  });
+
+  it('detecta <CNES> órfão em <contratadoExecutante> quando falta <cnpjContratado>/<cpfContratado>/<codigoPrestadorNaOperadora> e corrige automaticamente', async () => {
+    const { aplicarCorrecoesSegurasRecursivo } = await import('./tissAuditor');
+    const xmlSemCnpjExecutante = `<?xml version='1.0' encoding='ISO-8859-1'?>
+<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
+  <ans:cabecalho>
+    <ans:origem>
+      <ans:identificacaoPrestador>
+        <ans:CNPJ>52945193000823</ans:CNPJ>
+      </ans:identificacaoPrestador>
+    </ans:origem>
+    <ans:Padrao>4.03.00</ans:Padrao>
+  </ans:cabecalho>
+  <ans:prestadorParaOperadora>
+    <ans:loteGuias>
+      <ans:numeroLote>3757646</ans:numeroLote>
+      <ans:guiasTISS>
+        <ans:guiaConsulta>
+          <ans:cabecalhoConsulta>
+            <ans:registroANS>346659</ans:registroANS>
+            <ans:numeroGuiaPrestador>32898016</ans:numeroGuiaPrestador>
+          </ans:cabecalhoConsulta>
+          <ans:dadosBeneficiario>
+            <ans:numeroCarteira>0010000856010080</ans:numeroCarteira>
+            <ans:atendimentoRN>N</ans:atendimentoRN>
+          </ans:dadosBeneficiario>
+          <ans:contratadoExecutante>
+            <ans:CNES>3160548</ans:CNES>
+          </ans:contratadoExecutante>
+          <ans:profissionalExecutante>
+            <ans:nomeProfissional>RAPHAEL BARCELOS</ans:nomeProfissional>
+            <ans:conselhoProfissional>06</ans:conselhoProfissional>
+            <ans:numeroConselhoProfissional>228935</ans:numeroConselhoProfissional>
+            <ans:UF>35</ans:UF>
+            <ans:CBOS>225265</ans:CBOS>
+          </ans:profissionalExecutante>
+          <ans:indicacaoAcidente>9</ans:indicacaoAcidente>
+          <ans:dadosAtendimento>
+            <ans:regimeAtendimento>01</ans:regimeAtendimento>
+            <ans:dataAtendimento>2026-10-16</ans:dataAtendimento>
+            <ans:tipoConsulta>1</ans:tipoConsulta>
+            <ans:procedimento>
+              <ans:codigoTabela>22</ans:codigoTabela>
+              <ans:codigoProcedimento>10101012</ans:codigoProcedimento>
+              <ans:valorProcedimento>121.74</ans:valorProcedimento>
+            </ans:procedimento>
+          </ans:dadosAtendimento>
+        </ans:guiaConsulta>
+      </ans:guiasTISS>
+    </ans:loteGuias>
+  </ans:prestadorParaOperadora>
+</ans:mensagemTISS>`;
+
+    const antes = executarAuditoriaDinamica(xmlSemCnpjExecutante);
+    const erroOrfao = antes.inconsistencias.find(i => i.id.startsWith('orfao-identificacao-contratado'));
+    expect(erroOrfao).toBeDefined();
+    expect(erroOrfao?.tipo).toBe('Erro Órfão');
+    expect(erroOrfao?.linha).toBe(25);
+    expect(erroOrfao?.seguro).toBe(true);
+
+    const { novoConteudo, totalCorrigidos } = aplicarCorrecoesSegurasRecursivo(xmlSemCnpjExecutante);
+    expect(totalCorrigidos).toBeGreaterThanOrEqual(1);
+    expect(novoConteudo).toContain('<ans:cnpjContratado>52945193000823</ans:cnpjContratado>\n            <ans:CNES>3160548</ans:CNES>');
+
+    const depois = executarAuditoriaDinamica(novoConteudo);
+    expect(depois.inconsistencias.filter(i => i.id.startsWith('orfao-identificacao-contratado')).length).toBe(0);
+  });
 });

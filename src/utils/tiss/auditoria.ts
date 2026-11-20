@@ -27,6 +27,7 @@ import { regraAplicavel, REGRAS_VERSIONADAS } from '../tissVersion';
 import { LocalizadorDeLinha, mascararComentarios } from './xmlLineUtils';
 import { REGEX_TODAS_GUIAS, REGEX_PROCEDIMENTO_EXECUTADO, clonarRegex } from './regexPatterns';
 import { extrairGuias } from './guiaExtractor';
+import { executarRegrasNegocio } from './regrasNegocio';
 // Import circular intencional: calcularHashMD5Tiss é uma função pura (não
 // depende de executarAuditoriaDinamica), então é seguro em módulos ES —
 // ela só é *chamada* dentro do corpo de uma função aqui embaixo, nunca no
@@ -528,6 +529,64 @@ function executarAuditoriaDinamicaInterna(
             });
           }
         }
+      }
+    }
+
+    // VALIDAÇÃO TRANSVERSAL: Identificação obrigatória em <contratadoExecutante> (TISS 3.x / 4.x XSD)
+    // O XSD exige <cnpjContratado>, <cpfContratado> ou <codigoPrestadorNaOperadora> ANTES de <CNES>.
+    // Quando ausente, validadores XSD apontam <CNES> como elemento órfão/inesperado.
+    const contExecMatch = bloco.match(/<(?:[^:]+:)?contratadoExecutante(?:\s[^>]*?)?>[\s\S]*?<\/(?:[^:]+:)?contratadoExecutante\s*>/i);
+    if (contExecMatch) {
+      const contExecBloco = contExecMatch[0];
+      const temIdentificacaoContratado = /<(?:[^:]+:)?(?:cnpjContratado|cpfContratado|codigoPrestadorNaOperadora)(?:\s[^>]*?)?>\s*[^<\s]+\s*<\/(?:[^:]+:)?(?:cnpjContratado|cpfContratado|codigoPrestadorNaOperadora)\s*>/i.test(contExecBloco);
+
+      if (!temIdentificacaoContratado) {
+        const contExecOffset = matchStart + (contExecMatch.index || 0);
+        const cnesFilhoMatch = contExecBloco.match(/<(?:[^:]+:)?CNES(?:\s[^>]*?)?>/i);
+        const targetOffset = cnesFilhoMatch && cnesFilhoMatch.index !== undefined
+          ? contExecOffset + cnesFilhoMatch.index
+          : contExecOffset;
+        const targetLine = localizador.linhaDe(targetOffset);
+        const origLineText = linhas[targetLine - 1] ?? "";
+        const indentMatch = origLineText.match(/^(\s*)/);
+        const indent = indentMatch ? indentMatch[1] : "";
+
+        // Determina a tag de identificação segura a partir do cabeçalho (<origem><identificacaoPrestador>)
+        const apenasDigitosBase = cnpjBase.replace(/\D/g, '');
+        let tagIdentificacao = "";
+        if (/^\d{14}$/.test(apenasDigitosBase)) {
+          tagIdentificacao = `<${ns}cnpjContratado>${apenasDigitosBase}</${ns}cnpjContratado>`;
+        } else if (/^\d{11}$/.test(apenasDigitosBase)) {
+          tagIdentificacao = `<${ns}cpfContratado>${apenasDigitosBase}</${ns}cpfContratado>`;
+        } else if (cnpjBase && cnpjBase !== "-" && !/\s/.test(cnpjBase)) {
+          tagIdentificacao = `<${ns}codigoPrestadorNaOperadora>${cnpjBase}</${ns}codigoPrestadorNaOperadora>`;
+        }
+
+        let sugestao = "";
+        if (tagIdentificacao && origLineText.trim() !== "") {
+          if (/<(?:[^:]+:)?contratadoExecutante(?:\s[^>]*?)?>/i.test(origLineText)) {
+            sugestao = origLineText.replace(
+              /(<(?:[^:]+:)?contratadoExecutante(?:\s[^>]*?)?>)/i,
+              `$1${tagIdentificacao}`
+            );
+          } else {
+            sugestao = `${indent}${tagIdentificacao}\n${origLineText}`;
+          }
+        }
+
+        const descElemento = cnesFilhoMatch
+          ? `Este elemento está órfão (<CNES> em <contratadoExecutante>). Falta informar <cnpjContratado>, <cpfContratado> ou <codigoPrestadorNaOperadora> antes de <CNES>.`
+          : `Este elemento está órfão (<contratadoExecutante>). Falta informar <cnpjContratado>, <cpfContratado> ou <codigoPrestadorNaOperadora>.`;
+
+        inconsistencias.push({
+          id: `orfao-identificacao-contratado-${guideCounter}-${targetLine}`,
+          linha: targetLine,
+          tipo: "Erro Órfão",
+          desc: `${prefix}Linha ${targetLine}: ${descElemento}`,
+          original: origLineText,
+          sugestao,
+          seguro: Boolean(tagIdentificacao && origLineText.trim() !== "")
+        });
       }
     }
   }
@@ -1150,6 +1209,10 @@ function executarAuditoriaDinamicaInterna(
 
   // Extract Guides for isolated editing
   const guias = extrairGuias(conteudo);
+
+  // MÓDULO REGRAS DE NEGÓCIO E CONSISTÊNCIA CLÍNICA / FINANCEIRA
+  const inconsistenciasNegocio = executarRegrasNegocio(guias, localizador);
+  inconsistencias.push(...inconsistenciasNegocio);
 
   // MÓDULO ESTRUTURAL 3: Validação Matemática de Totais da Guia
   for (const guia of guias) {

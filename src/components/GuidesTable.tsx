@@ -608,6 +608,19 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({
                           onChange={(e) => handleInputChange(guide.id, 'carteira', e.target.value)}
                           className="w-full bg-transparent border border-border hover:border-[#444] focus:border-[#00b4d8] rounded px-2 py-1 text-xs text-foreground focus:outline-none"
                         />
+                        {(guide.nomeBeneficiario || guide.sexo) && (
+                          <div 
+                            className="truncate text-[10px] text-muted-foreground/80 mt-0.5 font-sans flex items-center gap-1"
+                            title={`Beneficiário: ${guide.nomeBeneficiario || '-'}${guide.sexo ? ` | Sexo: ${guide.sexo}` : ''}${guide.dataNascimento ? ` | Nasc: ${guide.dataNascimento}` : ''}`}
+                          >
+                            <span className="truncate max-w-[90px]">{guide.nomeBeneficiario || 'Paciente'}</span>
+                            {guide.sexo && (
+                              <span className="font-mono text-[9px] px-1 py-0.2 rounded bg-surface-2 text-foreground/70 shrink-0">
+                                {guide.sexo}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       {/* Senha */}
@@ -857,13 +870,25 @@ export const GuidesTable: React.FC<GuidesTableProps> = ({
                                       <td className="py-1.5 text-foreground/90 font-mono text-[11px] text-right">
                                         <div className="flex items-center justify-end gap-1">
                                           <span className="text-muted-foreground text-[10px]">R$</span>
-                                          <input
-                                            type="text"
-                                            value={currentProcForm.valor}
-                                            onChange={(e) => handleProcValorChange(proc.id, e.target.value)}
-                                            className="bg-background border border-border text-foreground text-[10px] p-0.5 rounded focus:border-[#00b4d8] focus:outline-none w-16 px-1 text-right font-mono text-primary"
-                                            placeholder="0.00"
-                                          />
+                                          {(() => {
+                                            const vNum = parseFloat((currentProcForm.valor || '').replace(',', '.'));
+                                            const isValZerado = isNaN(vNum) || vNum <= 0;
+                                            return (
+                                              <input
+                                                type="text"
+                                                value={currentProcForm.valor}
+                                                onChange={(e) => handleProcValorChange(proc.id, e.target.value)}
+                                                className={cn(
+                                                  "border text-[10px] p-0.5 rounded focus:outline-none w-16 px-1 text-right font-mono transition-colors",
+                                                  isValZerado
+                                                    ? "bg-red-500/10 border-red-500/80 text-red-200 font-semibold focus:border-red-400"
+                                                    : "bg-background border-border text-primary focus:border-[#00b4d8]"
+                                                )}
+                                                placeholder="0.00"
+                                                title={isValZerado ? "Valor nulo ou negativo: Gera glosa imediata pela operadora" : "Valor total do procedimento"}
+                                              />
+                                            );
+                                          })()}
                                         </div>
                                       </td>
                                       <td className="py-1.5 text-right flex justify-end gap-1">

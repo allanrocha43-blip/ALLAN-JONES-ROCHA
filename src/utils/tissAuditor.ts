@@ -33,3 +33,4 @@ export {
 } from './tiss/correcoes';
 export { calcularHashMD5Tiss, exportarXmlValidadoComHash } from './tiss/hash';
 export { formatarEHarmonizarXml, formatXmlBruto } from './tiss/formatting';
+export { executarRegrasNegocio } from './tiss/regrasNegocio';

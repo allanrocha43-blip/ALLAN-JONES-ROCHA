@@ -44,6 +44,9 @@ export interface GuideItem {
   senha: string;
   guia: string;
   guiaPrestador: string;
+  nomeBeneficiario?: string;
+  sexo?: string; // 'M' | 'F' | '1' | '3'
+  dataNascimento?: string; // YYYY-MM-DD
   procedimentos: ProcedimentoItem[];
 }
 

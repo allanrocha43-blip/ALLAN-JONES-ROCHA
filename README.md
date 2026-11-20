@@ -154,6 +154,11 @@ O **Auditor TISS Pro** atua como uma barreira preventiva:
 | Código / Regra | Tipo | Comportamento do Auditor |
 | :--- | :--- | :--- |
 | **`dataExecucao` vazia** | **Glosa Crítica** | Detecta tags vazias ou ausentes em guias SADT e Consulta, aponta o número da guia do prestador e exige preenchimento. |
+| **Inconsistência de Sexo vs Procedimento** | **Glosa Crítica** | Cruza o sexo do beneficiário com procedimentos anatomicamente restritos (ex.: parto/ginecologia para masculino ou urologia/próstata para feminino). |
+| **Inconsistência de Faixa Etária** | **Glosa Crítica** | Valida a data de nascimento e impede procedimentos exclusivamente neonatais/pediátricos para adultos ou obstétricos para crianças. |
+| **Valor Zerado ou Negativo** | **Glosa Crítica** | Bloqueia procedimentos faturados com valor unitário ou total nulo (R$ 0,00) ou negativo. |
+| **Teto de Tolerância Financeira** | **Aviso** | Alerta quando consultas médicas excedem R$ 2.500,00 ou procedimentos ambulatoriais extrapolam R$ 50.000,00. |
+| **Tipo de Guia vs Código TUSS** | **Aviso** | Alerta quando procedimentos cirúrgicos (capítulo 3) ou exames de imagem de alta complexidade são faturados em Guia de Consulta. |
 | **Divergência de HASH MD5** | **Erro Estrutural** | Recalcula a concatenação das tags e corrige o nó `<epilogo><hash>` com o hash MD5 da ANS. |
 | **Vias de Acesso e Procedimentos Bilaterais** | **Regra TUSS** | Audita regras de vias cirúrgicas iguais ou diferentes e os percentuais de redução/acréscimo CBHPM. |
 | **Formato Monetário e Casas Decimais** | **Regra XSD** | Valida se os valores possuem exatamente 2 casas decimais e separador decimal compatível. |
@@ -208,10 +213,11 @@ npm run lint
 │   ├── utils/
 │   │   ├── tiss/
 │   │   │   ├── auditoria.ts              # Motor principal de auditoria de regras TISS
+│   │   │   ├── regrasNegocio.ts          # Regras clínicas (sexo/idade), limites e tipo de guia
 │   │   │   ├── correcoes.ts              # Sincronização de guias e correções seguras
 │   │   │   ├── formatting.ts             # Formatação e harmonização do XML
 │   │   │   ├── hash.ts                   # Cálculo do algoritmo MD5 da ANS
-│   │   │   └── parser.ts                 # Extração rápida de guias e nós XML
+│   │   │   └── guiaExtractor.ts          # Extração estruturada de guias, paciente e itens
 │   │   ├── sampleXmls.ts                 # XMLs de exemplo TISS 3 e TISS 4
 │   │   ├── severidade.ts                 # Classificadores de severidade (Crítico, Aviso, OK)
 │   │   └── tissAuditor.ts                # Ponto de exportação unificado do motor
