@@ -1,0 +1,31 @@
+{
+  "portal": "Unimed",
+  "matches": ["unimed.coop.br", "unimed.*", "vivamed.com.br"],
+  "actions": [
+    {
+      "field": "numeroGuia",
+      "selectors": [
+        "input[id$=':numeroGuia']",
+        "input[name$='numeroGuia']",
+        "#form\\:numeroGuia",
+        "#numeroGuia"
+      ]
+    },
+    {
+      "field": "dataAtendimento",
+      "selectors": [
+        "input[id$=':dataAtendimento']",
+        ".data-atendimento input",
+        "input[type='date']"
+      ]
+    },
+    {
+      "field": "codigoBeneficiario",
+      "selectors": [
+        "input[id$=':carteirinha']",
+        "input[id$=':beneficiario']",
+        "#beneficiario"
+      ]
+    }
+  ]
+}

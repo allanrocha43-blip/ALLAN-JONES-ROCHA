@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
+    <ans:cabecalho>
+        <ans:identificacaoTransacao>
+            <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>
+            <ans:dataRegistroTransacao>2026-04-20</ans:dataRegistroTransacao>
+            <ans:horaRegistroTransacao>14:30:00</ans:horaRegistroTransacao>
+        </ans:identificacaoTransacao>
+        <ans:origem>
+            <ans:registroANS>123456</ans:registroANS>
+        </ans:origem>
+        <ans:destino>
+            <ans:identificacaoPrestador>
+                <ans:CNPJ>12345678000199</ans:CNPJ>
+            </ans:identificacaoPrestador>
+        </ans:destino>
+        <ans:versaoPadrao>3.05.00</ans:versaoPadrao>
+    </ans:cabecalho>
+    <ans:prestadorParaOperadora>
+        <ans:loteGuias>
+            <ans:numeroLote>20260420001</ans:numeroLote>
+            <ans:guiasTISS>
+                <ans:guiaSP-SADT>
+                    <ans:cabecalhoGuia>
+                        <ans:registroANS>123456</ans:registroANS>
+                        <ans:numeroGuiaPrestador>9988776655</ans:numeroGuiaPrestador>
+                    </ans:cabecalhoGuia>
+                    <ans:dadosBeneficiario>
+                        <ans:numeroCarteira>00019929394950001</ans:numeroCarteira>
+                        <ans:nomeBeneficiario>MARIA SILVA SAUDE</ans:nomeBeneficiario>
+                    </ans:dadosBeneficiario>
+                    <ans:dadosSolicitante>
+                        <ans:profissionalSolicitante>
+                            <ans:nomeProfissional>DR. JOAO MEDICO</ans:nomeProfissional>
+                        </ans:profissionalSolicitante>
+                    </ans:dadosSolicitante>
+                    <ans:dadosAtendimento>
+                        <ans:tipoAtendimento>05</ans:tipoAtendimento>
+                        <ans:indicacaoClinica>Paciente apresenta fortes dores de cabeca e enxaqueca persistente ha 3 dias. Solicitado exame de imagem.</ans:indicacaoClinica>
+                    </ans:dadosAtendimento>
+                    <ans:procedimentosExecutados>
+                        <ans:procedimentoExecutado>
+                            <ans:dataExecucao>2026-04-20</ans:dataExecucao>
+                            <ans:horaInicial>10:00:00</ans:horaInicial>
+                            <ans:horaFinal>10:30:00</ans:horaFinal>
+                            <ans:procedimento>
+                                <ans:codigoTabela>22</ans:codigoTabela>
+                                <ans:codigoProcedimento>41001017</ans:codigoProcedimento>
+                                <ans:descricaoProcedimento>TOMOGRAFIA COMPUTADORIZADA DE CRANIO</ans:descricaoProcedimento>
+                            </ans:procedimento>
+                            <ans:quantidadeExecutada>1</ans:quantidadeExecutada>
+                            <ans:valorUnitario>350.00</ans:valorUnitario>
+                            <ans:valorTotal>350.00</ans:valorTotal>
+                        </ans:procedimentoExecutado>
+                    </ans:procedimentosExecutados>
+                    <ans:valorTotal>
+                        <ans:valorProcedimentos>350.00</ans:valorProcedimentos>
+                        <ans:valorDiarias>0.00</ans:valorDiarias>
+                        <ans:valorTaxasRent>0.00</ans:valorTaxasRent>
+                        <ans:valorMateriais>0.00</ans:valorMateriais>
+                        <ans:valorMedicamentos>0.00</ans:valorMedicamentos>
+                        <ans:valorOPME>0.00</ans:valorOPME>
+                        <ans:valorGasesMedicos>0.00</ans:valorGasesMedicos>
+                        <ans:valorTotalGeral>350.00</ans:valorTotalGeral>
+                    </ans:valorTotal>
+                </ans:guiaSP-SADT>
+            </ans:guiasTISS>
+        </ans:loteGuias>
+    </ans:prestadorParaOperadora>
+</ans:mensagemTISS>

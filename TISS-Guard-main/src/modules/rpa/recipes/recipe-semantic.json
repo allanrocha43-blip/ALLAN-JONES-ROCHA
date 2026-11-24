@@ -1,0 +1,71 @@
+{
+  "portal": "Operadora Sandbox Mock",
+  "matches": ["mock-operadora.html"],
+  "actions": [
+    {
+      "field": "registroANS",
+      "target": {
+        "nameAttribute": "registroANS",
+        "ariaLabel": "Registro ANS",
+        "labelText": "Registro ANS",
+        "cssFallback": ["#ans-reg"]
+      }
+    },
+    {
+      "field": "numeroGuiaPrestador",
+      "target": {
+        "nameAttribute": "numeroGuia",
+        "labelText": "Número da Guia no Prestador",
+        "cssFallback": ["#id-guia-prestador"]
+      }
+    },
+    {
+      "field": "numeroCarteira",
+      "target": {
+        "nameAttribute": "nrCarteira",
+        "labelText": "Número da Carteira",
+        "cssFallback": [".carteirinha-input"]
+      }
+    },
+    {
+      "field": "nomeBeneficiario",
+      "target": {
+        "nameAttribute": "nomeBeneficiario",
+        "labelText": "Nome do Beneficiário",
+        "cssFallback": ["#ben-nome"]
+      }
+    },
+    {
+      "field": "dataAtendimento",
+      "target": {
+        "nameAttribute": "dataAtendimento",
+        "labelText": "Data do Atendimento",
+        "cssFallback": ["#date-att"]
+      }
+    },
+    {
+      "field": "codigoTabela",
+      "target": {
+        "nameAttribute": "codigoTabela",
+        "labelText": "Código da Tabela",
+        "cssFallback": ["#cod-tuss"]
+      }
+    },
+    {
+      "field": "codigoProcedimento",
+      "target": {
+        "nameAttribute": "codigoProcedimento",
+        "labelText": "Código do Procedimento",
+        "cssFallback": ["#cod-proc"]
+      }
+    },
+    {
+      "field": "valorTotal",
+      "target": {
+        "nameAttribute": "valorTotal",
+        "labelText": "Valor Total",
+        "cssFallback": ["#total-value"]
+      }
+    }
+  ]
+}

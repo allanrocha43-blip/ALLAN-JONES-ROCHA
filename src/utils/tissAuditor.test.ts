@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { executarAuditoriaDinamica } from './tissAuditor';
+import {
+  executarAuditoriaDinamica,
+  aplicarCorrecaoIndividual,
+  aplicarCorrecoesSegurasRecursivo,
+} from './tissAuditor';
 import { isCritico, contarPorSeveridade } from './severidade';
 import { parseVersaoTiss, regraAplicavel, REGRAS_VERSIONADAS } from './tissVersion';
 import {
@@ -151,6 +155,20 @@ describe('Formatação de XML (formatXmlBruto e formatarEHarmonizarXml)', () => 
     expect(auditFmt.inconsistencias.length).toBe(auditOrig.inconsistencias.length);
   });
 
+  it('formatXmlBruto apenas indenta o XML e NÃO aplica correções automáticas em erros existentes', async () => {
+    const { formatXmlBruto } = await import('./tissAuditor');
+    const xmlComErrosMinificado = `<?xml version="1.0" encoding="ISO-8859-1"?><ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas"><ans:cabecalho><ans:Padrao>4.03.00</ans:Padrao></ans:cabecalho><ans:prestadorParaOperadora><ans:loteGuias><ans:guiasTISS><ans:guiaConsulta><ans:cabecalhoConsulta><ans:registroANS>346659</ans:registroANS><ans:numeroGuiaPrestador>123</ans:numeroGuiaPrestador></ans:cabecalhoConsulta><ans:contratadoExecutante><ans:CNES>3160548</ans:CNES></ans:contratadoExecutante><ans:dadosAtendimento><ans:valorProcedimento>121,74</ans:valorProcedimento></ans:dadosAtendimento><ans:observacao></ans:observacao></ans:guiaConsulta></ans:guiasTISS></ans:loteGuias></ans:prestadorParaOperadora><ans:epilogo><ans:hash>000</ans:hash></ans:epilogo></ans:mensagemTISS>`;
+
+    const formatted = formatXmlBruto(xmlComErrosMinificado);
+    // Indenta normalmente
+    expect(formatted).toContain('\n  <ans:cabecalho>');
+    // Mantém os erros exatamente como estão (sem corrigir vírgula, sem inserir tags, sem remover tag vazia)
+    expect(formatted).toContain('<ans:valorProcedimento>121,74</ans:valorProcedimento>');
+    expect(formatted).toContain('<ans:observacao></ans:observacao>');
+    expect(formatted).not.toContain('cnpjContratado');
+    expect(formatted).not.toContain('codigoPrestadorNaOperadora');
+  });
+
   it('executarAuditoriaDinamica detecta inconsistência biológica de sexo e valor zerado em XML completo', () => {
     const xmlComErroBiologico = `<?xml version="1.0" encoding="ISO-8859-1"?>
 <ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
@@ -256,5 +274,84 @@ describe('Formatação de XML (formatXmlBruto e formatarEHarmonizarXml)', () => 
 
     const depois = executarAuditoriaDinamica(novoConteudo);
     expect(depois.inconsistencias.filter(i => i.id.startsWith('orfao-identificacao-contratado')).length).toBe(0);
+  });
+
+  it('aplicarCorrecaoIndividual ancora na linha correta em múltiplos procedimentos e impede duplicidade em duplo clique', () => {
+    const xmlMultiProc = `<?xml version="1.0" encoding="ISO-8859-1"?>
+<ans:mensagemTISS xmlns:ans="http://www.ans.gov.br/padroes/tiss/schemas">
+  <ans:cabecalho>
+    <ans:identificacaoTransacao>
+      <ans:tipoTransacao>ENVIO_LOTE_GUIAS</ans:tipoTransacao>
+      <ans:sequencialTransacao>100</ans:sequencialTransacao>
+      <ans:dataRegistroTransacao>2026-08-05</ans:dataRegistroTransacao>
+      <ans:horaRegistroTransacao>10:30:00</ans:horaRegistroTransacao>
+    </ans:identificacaoTransacao>
+    <ans:origem>
+      <ans:identificacaoPrestador>
+        <ans:cnpjContratado>12345678000195</ans:cnpjContratado>
+      </ans:identificacaoPrestador>
+    </ans:origem>
+    <ans:destino><ans:registroANS>358291</ans:registroANS></ans:destino>
+    <ans:Padrao>3.05.00</ans:Padrao>
+  </ans:cabecalho>
+  <ans:prestadorParaOperadora>
+    <ans:loteGuias>
+      <ans:numeroLote>1</ans:numeroLote>
+      <ans:guiasTISS>
+        <ans:guiaSP-SADT>
+          <ans:cabecalhoGuia>
+            <ans:registroANS>358291</ans:registroANS>
+            <ans:numeroGuiaPrestador>1001</ans:numeroGuiaPrestador>
+          </ans:cabecalhoGuia>
+          <ans:dadosBeneficiario>
+            <ans:numeroCarteira>00112233445566</ans:numeroCarteira>
+            <ans:nomeBeneficiario>PACIENTE TESTE</ans:nomeBeneficiario>
+          </ans:dadosBeneficiario>
+          <ans:procedimentosExecutados>
+            <ans:procedimentoExecutado>
+              <ans:dataExecucao>2026-08-01</ans:dataExecucao>
+              <ans:procedimento>
+                <ans:codigoTabela>22</ans:codigoTabela>
+                <ans:codigoProcedimento>30306027</ans:codigoProcedimento>
+                <ans:descricaoProcedimento>FACOEMULSIFICACAO</ans:descricaoProcedimento>
+              </ans:procedimento>
+              <ans:quantidadeExecutada>1</ans:quantidadeExecutada>
+              <ans:valorUnitario>1000.00</ans:valorUnitario>
+              <ans:valorTotal>1000.00</ans:valorTotal>
+            </ans:procedimentoExecutado>
+            <ans:procedimentoExecutado>
+              <ans:dataExecucao>2026-08-01</ans:dataExecucao>
+              <ans:procedimento>
+                <ans:codigoTabela>22</ans:codigoTabela>
+                <ans:codigoProcedimento>30306027</ans:codigoProcedimento>
+                <ans:descricaoProcedimento>FACOEMULSIFICACAO</ans:descricaoProcedimento>
+              </ans:procedimento>
+              <ans:quantidadeExecutada>1</ans:quantidadeExecutada>
+              <ans:valorUnitario>1000.00</ans:valorUnitario>
+              <ans:valorTotal>1000.00</ans:valorTotal>
+            </ans:procedimentoExecutado>
+          </ans:procedimentosExecutados>
+        </ans:guiaSP-SADT>
+      </ans:guiasTISS>
+    </ans:loteGuias>
+  </ans:prestadorParaOperadora>
+</ans:mensagemTISS>`;
+
+    const audit1 = executarAuditoriaDinamica(xmlMultiProc);
+    const viaErrors = audit1.inconsistencias.filter(i => i.id.startsWith('orfao-viaacesso'));
+    expect(viaErrors.length).toBe(2);
+
+    const res1 = aplicarCorrecaoIndividual(xmlMultiProc, viaErrors[1]);
+    expect(res1.sucesso).toBe(true);
+    expect((res1.novoConteudo.match(/<ans:viaAcesso>1<\/ans:viaAcesso>/g) || []).length).toBe(1);
+
+    const resDuploClique = aplicarCorrecaoIndividual(res1.novoConteudo, viaErrors[1]);
+    expect(resDuploClique.sucesso).toBe(false);
+    expect((resDuploClique.novoConteudo.match(/<ans:viaAcesso>1<\/ans:viaAcesso>/g) || []).length).toBe(1);
+
+    const resLote = aplicarCorrecoesSegurasRecursivo(res1.novoConteudo);
+    expect((resLote.novoConteudo.match(/<ans:viaAcesso>1<\/ans:viaAcesso>/g) || []).length).toBe(2);
+    expect((resLote.novoConteudo.match(/<ans:atendimentoRN>N<\/ans:atendimentoRN>/g) || []).length).toBe(1);
+    expect(resLote.novoConteudo).not.toMatch(/><ans:(viaAcesso|atendimentoRN|codigoTabela|indicacaoAcidente|CNES)>/);
   });
 });

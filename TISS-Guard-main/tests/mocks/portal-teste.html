@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal Simulado - Bradesco Saúde</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; background: #f8fafc; color: #1e293b; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+        h2 { color: #0f172a; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 25px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; font-size: 15px; transition: border-color 0.2s; }
+        input:focus { border-color: #3b82f6; outline: none; }
+        .readonly { background-color: #f1f5f9; color: #64748b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🏥 Lançamento de Guias TISS - Homologação</h2>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 30px;">
+            Simule o envio de uma Guia SP/SADT. O TISS Guard identificará estes rótulos e preencherá automaticamente.
+        </p>
+        
+        <div class="form-group">
+            <label for="nrGuia">Número da Guia do Prestador</label>
+            <input type="text" id="nrGuia" placeholder="Aguardando RPA...">
+        </div>
+
+        <div class="form-group">
+            <label for="carteira">Carteirinha / Matrícula</label>
+            <input type="text" id="carteira" placeholder="Aguardando RPA...">
+        </div>
+
+        <div class="form-group">
+            <label for="dtAtendimento">Data do Atendimento</label>
+            <input type="date" id="dtAtendimento">
+        </div>
+
+        <div class="form-group">
+            <label for="proc">Procedimento (Código TUSS)</label>
+            <input type="text" id="proc" placeholder="Aguardando RPA...">
+        </div>
+
+        <div class="form-group">
+            <label for="valor">Valor Total R$ (Cobrança)</label>
+            <input type="number" id="valor" step="0.01" placeholder="0.00">
+        </div>
+
+        <div class="form-group">
+            <label for="indicacao">Indicação Clínica (Motivo)</label>
+            <textarea id="indicacao" rows="3" placeholder="Aguardando RPA..."></textarea>
+        </div>
+        
+        <button style="width: 100%; padding: 12px; background: #0f172a; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+            Enviar Guia
+        </button>
+    </div>
+</body>
+</html>

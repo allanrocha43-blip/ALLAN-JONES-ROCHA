@@ -317,7 +317,9 @@ function executarAuditoriaDinamicaInterna(
           tipo: "Erro Órfão",
           desc: `${prefix}Linha ${lineTarget}: Este elemento está órfão (<indicacaoAcidente>). Falta informar.`,
           original: origSnippet || "[DADOS ATENDIMENTO]",
-          sugestao: origSnippet ? `${origSnippet.substring(0, origSnippet.search(/\S/))}<${ns}indicacaoAcidente>9</${ns}indicacaoAcidente>${origSnippet}` : `<${ns}indicacaoAcidente>9</${ns}indicacaoAcidente>`,
+          sugestao: origSnippet
+            ? `${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}<${ns}indicacaoAcidente>9</${ns}indicacaoAcidente>\n${origSnippet}`
+            : `<${ns}indicacaoAcidente>9</${ns}indicacaoAcidente>`,
           seguro: origSnippet !== ""
         });
       }
@@ -337,7 +339,9 @@ function executarAuditoriaDinamicaInterna(
             tipo: "Erro Órfão",
             desc: `${prefix}Linha ${benLine}: Este elemento está órfão (<atendimentoRN> em <dadosBeneficiario>). Falta informar.`,
             original: origSnippet,
-            sugestao: origSnippet ? `${origSnippet}${origSnippet.substring(0, origSnippet.search(/\S/))}  <${ns}atendimentoRN>N</${ns}atendimentoRN>` : `<${ns}atendimentoRN>N</${ns}atendimentoRN>`,
+            sugestao: origSnippet
+              ? `${origSnippet}\n${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}  <${ns}atendimentoRN>N</${ns}atendimentoRN>`
+              : `<${ns}atendimentoRN>N</${ns}atendimentoRN>`,
             seguro: origSnippet !== ""
           });
         }
@@ -386,7 +390,9 @@ function executarAuditoriaDinamicaInterna(
             tipo: "Erro Órfão",
             desc: `${prefix}Linha ${targetLine}: Este elemento está órfão (<codigoTabela> em <procedimento>). Falta informar.`,
             original: origSnippet || "[PROCEDIMENTO]",
-            sugestao: origSnippet ? `${origSnippet.substring(0, origSnippet.search(/\S/))}<${ns}codigoTabela>22</${ns}codigoTabela>${origSnippet}` : `<${ns}codigoTabela>22</${ns}codigoTabela>`,
+            sugestao: origSnippet
+              ? `${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}<${ns}codigoTabela>22</${ns}codigoTabela>\n${origSnippet}`
+              : `<${ns}codigoTabela>22</${ns}codigoTabela>`,
             seguro: origSnippet !== ""
           });
         }
@@ -407,7 +413,9 @@ function executarAuditoriaDinamicaInterna(
             tipo: "Erro Órfão",
             desc: `${prefix}Linha ${contLine}: Este elemento está órfão (<CNES> em <contratadoExecutante>). Falta informar.`,
             original: origSnippet,
-            sugestao: origSnippet ? `${origSnippet}${origSnippet.substring(0, origSnippet.search(/\S/))}  <${ns}CNES>0000000</${ns}CNES>` : `<${ns}CNES>0000000</${ns}CNES>`,
+            sugestao: origSnippet
+              ? `${origSnippet}\n${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}  <${ns}CNES>0000000</${ns}CNES>`
+              : `<${ns}CNES>0000000</${ns}CNES>`,
             seguro: origSnippet !== ""
           });
         }
@@ -446,7 +454,9 @@ function executarAuditoriaDinamicaInterna(
             tipo: "Erro Órfão",
             desc: `${prefix}Linha ${benLine}: Este elemento está órfão (<atendimentoRN> em <dadosBeneficiario>). Falta informar.`,
             original: origSnippet,
-            sugestao: origSnippet ? `${origSnippet}${origSnippet.substring(0, origSnippet.search(/\S/))}  <${ns}atendimentoRN>N</${ns}atendimentoRN>` : `<${ns}atendimentoRN>N</${ns}atendimentoRN>`,
+            sugestao: origSnippet
+              ? `${origSnippet}\n${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}  <${ns}atendimentoRN>N</${ns}atendimentoRN>`
+              : `<${ns}atendimentoRN>N</${ns}atendimentoRN>`,
             seguro: origSnippet !== ""
           });
         }
@@ -492,7 +502,9 @@ function executarAuditoriaDinamicaInterna(
             tipo: "Erro Órfão",
             desc: `${prefix}Linha ${targetLine}: Este elemento está órfão (<codigoTabela> em procedimento). Falta informar.`,
             original: origSnippet || "[PROCEDIMENTO EXAME]",
-            sugestao: origSnippet ? `${origSnippet.substring(0, origSnippet.search(/\S/))}<${ns}codigoTabela>22</${ns}codigoTabela>${origSnippet}` : `<${ns}codigoTabela>22</${ns}codigoTabela>`,
+            sugestao: origSnippet
+              ? `${origSnippet.substring(0, Math.max(0, origSnippet.search(/\S/)))}<${ns}codigoTabela>22</${ns}codigoTabela>\n${origSnippet}`
+              : `<${ns}codigoTabela>22</${ns}codigoTabela>`,
             seguro: origSnippet !== ""
           });
         }
@@ -783,13 +795,15 @@ function executarAuditoriaDinamicaInterna(
         }
 
         if (originalMatch) {
+          const linhaAtual = linhas[lineTarget - 1] || '';
+          const indentVia = linhaAtual.slice(0, Math.max(0, linhaAtual.search(/\S/)));
           inconsistencias.push({
             id: `orfao-viaacesso-${lineTarget}-${matchStart}`,
             linha: lineTarget,
             tipo: "Erro Regra",
-            desc: `${prefix}Linha ${lineTarget}: Tag nao preenchida: _viaAcesso_ para o Procedimento: _${cod}_.`, // Alert for all procedures
+            desc: `${prefix}Linha ${lineTarget}: Tag nao preenchida: _viaAcesso_ para o Procedimento: _${cod}_.`,
             original: originalMatch,
-            sugestao: `${originalMatch}              <${ns}viaAcesso>1</${ns}viaAcesso>`, // 1 = Única
+            sugestao: `${originalMatch}\n${indentVia}<${ns}viaAcesso>1</${ns}viaAcesso>`,
             seguro: true
           });
         }

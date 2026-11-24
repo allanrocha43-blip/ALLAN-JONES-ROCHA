@@ -6,7 +6,7 @@ import { xml } from '@codemirror/lang-xml';
 import { vscodeDark } from '@uiw/codemirror-theme-vscode';
 import { EditorView } from '@codemirror/view';
 import { undo, redo } from '@codemirror/commands';
-import { formatarEHarmonizarXml } from '../utils/tissAuditor';
+import { formatXmlBruto } from '../utils/tissAuditor';
 
 interface XmlEditorProps {
   conteudo: string;
@@ -193,9 +193,14 @@ export const XmlEditor: React.FC<XmlEditorProps> = ({
   };
 
   const handleFormatXml = () => {
-    const res = formatarEHarmonizarXml(conteudo);
-    onChangeConteudo(res.novoConteudo);
-    setReplaceSuccessMsg(res.msg);
+    if (!conteudo || !conteudo.trim()) {
+      setReplaceSuccessMsg('Conteúdo XML vazio.');
+      setTimeout(() => setReplaceSuccessMsg(null), 4000);
+      return;
+    }
+    const formatted = formatXmlBruto(conteudo);
+    onChangeConteudo(formatted);
+    setReplaceSuccessMsg('✓ XML formatado e identado com sucesso!');
     setTimeout(() => setReplaceSuccessMsg(null), 4000);
   };
 
@@ -292,7 +297,7 @@ export const XmlEditor: React.FC<XmlEditorProps> = ({
             whileHover={{ scale: 1.05, boxShadow: "0px 0px 10px rgba(0, 180, 216, 0.3)" }}
             whileTap={{ scale: 0.95 }}
             onClick={handleFormatXml}
-            title="Formatar Identação do XML e Corrigir Estrutura"
+            title="Formatar apenas a indentação do XML (sem alterar tags ou valores)"
             className="flex items-center gap-1 text-[11px] bg-[#2a2d2e] hover:bg-[#383c3e] text-gray-300 px-2.5 py-1 rounded transition-all cursor-pointer"
           >
             <Wand2 className="w-3 h-3 text-[#00b4d8]" />

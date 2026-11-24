@@ -22,6 +22,19 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
   onExcluirLinha,
 }) => {
   const [filtroTipo, setFiltroTipo] = useState<string>('todos');
+  const inFlightRef = React.useRef<Set<string>>(new Set());
+
+  const handleSafeSingleClick = (erro: Inconsistency) => {
+    if (inFlightRef.current.has(erro.id)) return;
+    inFlightRef.current.add(erro.id);
+    try {
+      onAplicarCorrecao(erro);
+    } finally {
+      window.setTimeout(() => {
+        inFlightRef.current.delete(erro.id);
+      }, 250);
+    }
+  };
 
   const errosSeguros = inconsistencias.filter(e => e.seguro);
 
@@ -49,6 +62,7 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-[#2d3235] shrink-0">
         <div className="flex items-center gap-2">
           <motion.button
+            type="button"
             whileHover={errosSeguros.length > 0 ? { scale: 1.04, boxShadow: "0px 0px 12px rgba(233, 196, 106, 0.4)" } : undefined}
             whileTap={errosSeguros.length > 0 ? { scale: 0.95 } : undefined}
             onClick={onCorrigirTudoSeguro}
@@ -64,6 +78,7 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
         <div className="flex items-center gap-1 text-xs">
           <span className="text-gray-400 mr-1 hidden sm:inline">Filtrar:</span>
           <motion.button
+            type="button"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setFiltroTipo('todos')}
@@ -74,6 +89,7 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
             Todos ({inconsistencias.length})
           </motion.button>
           <motion.button
+            type="button"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setFiltroTipo('criticos')}
@@ -84,6 +100,7 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
             Críticos/XSD
           </motion.button>
           <motion.button
+            type="button"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setFiltroTipo('avisos')}
@@ -144,46 +161,42 @@ export const AuditPanel: React.FC<AuditPanelProps> = ({
 
                 {/* Actions Right */}
                 <div className="flex items-center gap-1.5 shrink-0 ml-auto pt-2 md:pt-0">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
+                    type="button"
                     onClick={() => onIrParaLinha(erro.linha)}
-                    className="flex items-center gap-1 text-[11px] bg-[#2a2d2e] hover:bg-[#383c3e] text-gray-300 px-2.5 py-1 rounded transition-all cursor-pointer"
+                    className="flex items-center gap-1 text-[11px] bg-[#2a2d2e] hover:bg-[#383c3e] text-gray-300 px-2.5 py-1 rounded transition-transform duration-150 hover:scale-[1.03] active:scale-95 cursor-pointer"
                   >
                     <Eye className="w-3 h-3 text-[#00b4d8]" />
                     <span>Ver no XML</span>
-                  </motion.button>
+                  </button>
 
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
+                    type="button"
                     onClick={() => onIgnorarErro(erro.id)}
-                    className="flex items-center gap-1 text-[11px] bg-transparent hover:bg-gray-800 text-gray-400 border border-[#444] px-2 py-1 rounded transition-all cursor-pointer"
+                    className="flex items-center gap-1 text-[11px] bg-transparent hover:bg-gray-800 text-gray-400 border border-[#444] px-2 py-1 rounded transition-transform duration-150 hover:scale-[1.03] active:scale-95 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                     <span className="hidden sm:inline">Ignorar</span>
-                  </motion.button>
+                  </button>
 
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
+                    type="button"
                     onClick={() => onExcluirLinha(erro.linha)}
-                    className="flex items-center gap-1 text-[11px] bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 px-2 py-1 rounded transition-all cursor-pointer"
+                    className="flex items-center gap-1 text-[11px] bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 px-2 py-1 rounded transition-transform duration-150 hover:scale-[1.03] active:scale-95 cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                     <span className="hidden sm:inline">Excluir Linha</span>
-                  </motion.button>
+                  </button>
 
                   {erro.sugestao !== "" && (
-                    <motion.button
-                      whileHover={{ scale: 1.06, boxShadow: "0px 0px 10px rgba(42, 157, 143, 0.4)" }}
-                      whileTap={{ scale: 0.94 }}
-                      onClick={() => onAplicarCorrecao(erro)}
-                      className="flex items-center gap-1 text-[11px] font-bold bg-[#2a9d8f] hover:bg-[#21867a] text-white px-2.5 py-1 rounded transition-all shadow-xs cursor-pointer"
+                    <button
+                      type="button"
+                      onClick={() => handleSafeSingleClick(erro)}
+                      className="flex items-center gap-1 text-[11px] font-bold bg-[#2a9d8f] hover:bg-[#21867a] text-white px-2.5 py-1 rounded transition-all duration-150 hover:scale-[1.04] hover:shadow-[0_0_10px_rgba(42,157,143,0.4)] active:scale-95 cursor-pointer"
                     >
                       <Check className="w-3 h-3" />
                       <span>Corrigir</span>
-                    </motion.button>
+                    </button>
                   )}
                 </div>
               </div>

@@ -1,0 +1,102 @@
+[
+  {
+    "code": "10101012",
+    "description": "Consulta em consultório (no horário normal ou preestabelecido)"
+  },
+  {
+    "code": "10101020",
+    "description": "Consulta em domicílio"
+  },
+  {
+    "code": "10101039",
+    "description": "Consulta em pronto socorro"
+  },
+  {
+    "code": "20104013",
+    "description": "Terapia de inalação (por sessão)"
+  },
+  {
+    "code": "20104048",
+    "description": "Cateterismo vesical de alívio"
+  },
+  {
+    "code": "20104080",
+    "description": "Curativo de extremidades de origem vascular"
+  },
+  {
+    "code": "20104099",
+    "description": "Curativo de queimaduras - por unidade topográfica (ambulatorial)"
+  },
+  {
+    "code": "20104102",
+    "description": "Curativo de queimaduras - por unidade topográfica (hospitalar)"
+  },
+  {
+    "code": "20104137",
+    "description": "Sessão de oxigenoterapia hiperbárica (por sessão de 2 horas)"
+  },
+  {
+    "code": "20104145",
+    "description": "Sessão de psicoterapia individual (por sessão)"
+  },
+  {
+    "code": "20104153",
+    "description": "Sessão de psicoterapia de grupo (por sessão)"
+  },
+  {
+    "code": "20104188",
+    "description": "Sessão de psicoterapia de casal / família (por sessão)"
+  },
+  {
+    "code": "20104218",
+    "description": "Terapia oncológica com aplicadores de superfície (por sessão)"
+  },
+  {
+    "code": "20104226",
+    "description": "Terapia oncológica com aplicadores intracavitários (por sessão)"
+  },
+  {
+    "code": "30101018",
+    "description": "Abrasão cirúrgica (por sessão)"
+  },
+  {
+    "code": "30101026",
+    "description": "Alopecia parcial - exérese e sutura"
+  },
+  {
+    "code": "30101034",
+    "description": "Alopecia - redução cirúrgica (com ou sem expansor)"
+  },
+  {
+    "code": "30101042",
+    "description": "Apêndices cutâneos - exérese (eletrocauterização / fulguração / excisão)"
+  },
+  {
+    "code": "30101050",
+    "description": "Autonxerto de pele - qualquer parte do corpo"
+  },
+  {
+    "code": "30101069",
+    "description": "Biopsia de pele e/ou partes moles"
+  },
+  {
+    "code": "30101077",
+    "description": "Calosidade e/ou verruga plantar - exérese (por lesão)"
+  },
+  {
+    "code": "40301001",
+    "description": "Hemograma completo"
+  },
+  {
+    "code": "40302008",
+    "description": "Glicose"
+  },
+  {
+    "code": "40304361",
+    "description": "Colesterol total"
+  },
+  {
+    "code": "40304370",
+    "description": "Triglicerídeos"
+  }
+]

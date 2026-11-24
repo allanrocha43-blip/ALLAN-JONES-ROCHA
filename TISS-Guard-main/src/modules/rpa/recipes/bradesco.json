@@ -1,0 +1,14 @@
+{
+  "portal": "Bradesco Seguros",
+  "matches": ["bradescoseguros.com.br", "bradesco.*"],
+  "actions": [
+    {
+      "field": "numeroGuia",
+      "selectors": ["#txtNumeroGuia", "input[name='numeroGuia']"]
+    },
+    {
+      "field": "senha",
+      "selectors": ["#txtSenha", "input[name='autho']"]
+    }
+  ]
+}

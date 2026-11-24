@@ -315,58 +315,121 @@ export function aplicarCorrecoesSegurasRecursivo(
   return { novoConteudo: currentContent, totalCorrigidos: totalCorrigidosGlobal };
 }
 
-// Aplicar uma correção individual
+// Helper: extrai a tag nova inserida quando `sugestao` contém `original` + nova tag
+function extrairTagInserida(original: string, sugestao: string): string | null {
+  const origTrim = original.trim();
+  const sugTrim = sugestao.trim();
+  if (!origTrim || !sugTrim.includes(origTrim) || origTrim === sugTrim) return null;
+  const restante = sugTrim.replace(origTrim, '').trim();
+  const tagMatch = restante.match(/<([a-zA-Z0-9_:-]+)[^>]*>[\s\S]*?<\/\1>/);
+  return tagMatch ? tagMatch[0] : restante || null;
+}
+
+// Aplicar uma correção individual (com ancoragem por linha e trava anti-duplicidade)
 export function aplicarCorrecaoIndividual(
-  conteudo: string, 
+  conteudo: string,
   erro: Inconsistency
 ): { novoConteudo: string; sucesso: boolean } {
   const sugestaoVazia = !erro.sugestao || erro.sugestao.trim() === "";
 
-  // Para erros estruturais multilinhas (como tags vazias que capturam o \n)
+  // 1. Erros estruturais multilinhas com remoção completa
   if (sugestaoVazia && erro.original.includes('\n')) {
     if (conteudo.includes(erro.original)) {
-      // First try to replace original + trailing newline to prevent empty lines
       if (conteudo.includes(erro.original + '\n')) {
         return { novoConteudo: conteudo.replace(erro.original + '\n', ''), sucesso: true };
       }
       return { novoConteudo: conteudo.replace(erro.original, ''), sucesso: true };
     }
+    return { novoConteudo: conteudo, sucesso: false };
   }
 
   const linhas = conteudo.split('\n');
-  const idx = erro.linha - 1;
+  const baseIdx = erro.linha - 1;
+  const origTrim = (erro.original || '').trim();
+  const tagNova = !sugestaoVazia ? extrairTagInserida(erro.original, erro.sugestao) : null;
 
-  if (idx >= 0 && idx < linhas.length && (linhas[idx] === erro.original || linhas[idx].trim() === erro.original.trim())) {
-    if (sugestaoVazia) {
-      // Linha substituída por vazia: remove para que a linha de baixo suba e preencha o espaço
-      linhas.splice(idx, 1);
-    } else {
-      const matchIndent = linhas[idx].match(/^(\s*)/);
-      const indent = matchIndent ? matchIndent[1] : '';
-      const sugestaoTrimmed = erro.sugestao.trim();
-      linhas[idx] = indent + sugestaoTrimmed;
-    }
-    return { novoConteudo: linhas.join('\n'), sucesso: true };
-  } else {
-    // Fallback pra replace global (apenas se original for uma string não-vazia para não corromper o texto)
-    if (erro.original && erro.original.trim() !== "" && conteudo.includes(erro.original)) {
-      if (sugestaoVazia) {
-        if (conteudo.includes(erro.original + '\r\n')) {
-          return { novoConteudo: conteudo.replace(erro.original + '\r\n', ''), sucesso: true };
-        }
-        if (conteudo.includes(erro.original + '\n')) {
-          return { novoConteudo: conteudo.replace(erro.original + '\n', ''), sucesso: true };
-        }
-        if (conteudo.includes('\r\n' + erro.original)) {
-          return { novoConteudo: conteudo.replace('\r\n' + erro.original, ''), sucesso: true };
-        }
-        if (conteudo.includes('\n' + erro.original)) {
-          return { novoConteudo: conteudo.replace('\n' + erro.original, ''), sucesso: true };
-        }
-      }
-      return { novoConteudo: conteudo.replace(erro.original, erro.sugestao), sucesso: true };
+  // 2. Busca a linha-alvo exata ou deslocada em até ±3 linhas
+  let targetIdx = -1;
+  const offsets = [0, -1, 1, -2, 2, -3, 3];
+  for (const delta of offsets) {
+    const candidate = baseIdx + delta;
+    if (candidate < 0 || candidate >= linhas.length) continue;
+    const lineText = linhas[candidate];
+    if (
+      lineText === erro.original ||
+      (origTrim !== "" && (lineText.trim() === origTrim || lineText.includes(origTrim)))
+    ) {
+      targetIdx = candidate;
+      break;
     }
   }
+
+  if (targetIdx !== -1) {
+    const linhaAlvo = linhas[targetIdx];
+
+    // Trava anti-duplicidade (idempotência)
+    if (tagNova) {
+      const janelaVizinha = linhas
+        .slice(Math.max(0, targetIdx - 1), Math.min(linhas.length, targetIdx + 2))
+        .join('\n');
+      if (janelaVizinha.includes(tagNova)) {
+        return { novoConteudo: conteudo, sucesso: false };
+      }
+    }
+
+    if (sugestaoVazia) {
+      if (linhaAlvo === erro.original || linhaAlvo.trim() === origTrim) {
+        linhas.splice(targetIdx, 1);
+      } else {
+        linhas[targetIdx] = linhaAlvo.replace(erro.original, '');
+        if (linhas[targetIdx].trim() === '') {
+          linhas.splice(targetIdx, 1);
+        }
+      }
+      return { novoConteudo: linhas.join('\n'), sucesso: true };
+    }
+
+    if (linhaAlvo === erro.original || linhaAlvo.trim() === origTrim) {
+      const matchIndent = linhaAlvo.match(/^(\s*)/);
+      const indent = matchIndent ? matchIndent[1] : '';
+      const sugestaoLimpa = erro.sugestao.replace(/^\s+/, '');
+      linhas[targetIdx] = indent + sugestaoLimpa;
+      return { novoConteudo: linhas.join('\n'), sucesso: true };
+    }
+
+    if (linhaAlvo.includes(erro.original)) {
+      linhas[targetIdx] = linhaAlvo.replace(erro.original, erro.sugestao);
+      return { novoConteudo: linhas.join('\n'), sucesso: true };
+    }
+  }
+
+  // 3. Fallback global seguro
+  if (origTrim !== "" && conteudo.includes(erro.original)) {
+    if (sugestaoVazia) {
+      if (conteudo.includes(erro.original + '\r\n')) {
+        return { novoConteudo: conteudo.replace(erro.original + '\r\n', ''), sucesso: true };
+      }
+      if (conteudo.includes(erro.original + '\n')) {
+        return { novoConteudo: conteudo.replace(erro.original + '\n', ''), sucesso: true };
+      }
+      if (conteudo.includes('\r\n' + erro.original)) {
+        return { novoConteudo: conteudo.replace('\r\n' + erro.original, ''), sucesso: true };
+      }
+      if (conteudo.includes('\n' + erro.original)) {
+        return { novoConteudo: conteudo.replace('\n' + erro.original, ''), sucesso: true };
+      }
+      return { novoConteudo: conteudo.replace(erro.original, ''), sucesso: true };
+    }
+    if (tagNova && conteudo.includes(tagNova)) {
+      const pos = conteudo.indexOf(erro.original);
+      const trechoProximo = conteudo.slice(Math.max(0, pos - 120), Math.min(conteudo.length, pos + 240));
+      if (trechoProximo.includes(tagNova)) {
+        return { novoConteudo: conteudo, sucesso: false };
+      }
+    }
+    return { novoConteudo: conteudo.replace(erro.original, erro.sugestao), sucesso: true };
+  }
+
   return { novoConteudo: conteudo, sucesso: false };
 }
 

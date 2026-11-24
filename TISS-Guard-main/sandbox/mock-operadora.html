@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Operadora - Portal Legado</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #f0f0f0; padding: 20px; }
+        .container { background: #fff; padding: 20px; border-radius: 5px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 800px; margin: auto; }
+        .form-group { margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; background: #fafafa; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .form-group input { width: 100%; padding: 8px; box-sizing: border-box; }
+        .nested-div { padding: 10px; border-left: 3px solid #007bff; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Guia TISS - Faturamento SADT / Consulta</h2>
+    <form id="billing-form">
+        
+        <!-- Campo 1: Regex/name match -->
+        <div class="form-group">
+            <div class="nested-div">
+                <label for="ans-reg">Registro ANS na Operadora</label>
+                <input type="text" id="ans-reg" name="registroANS" aria-label="Registro ANS" required>
+            </div>
+        </div>
+
+        <!-- Campo 2: Label FOR match -->
+        <div class="form-group">
+            <div class="nested-div">
+                <label for="id-guia-prestador">Número da Guia no Prestador</label>
+                <input type="text" id="id-guia-prestador" name="numeroGuia" aria-label="Número da Guia do Prestador" required>
+            </div>
+        </div>
+
+        <!-- Campo 3: Label aninhamento match (sem FOR) -->
+        <div class="form-group">
+            <div class="nested-div">
+                <label>
+                    Número da Carteira
+                    <input type="text" class="carteirinha-input" name="nrCarteira" aria-label="Número da Carteira do Beneficiário" required>
+                </label>
+            </div>
+        </div>
+
+        <!-- Campo 4: aria-label ou name match -->
+        <div class="form-group">
+            <label for="ben-nome">Nome do Beneficiário</label>
+            <input type="text" id="ben-nome" name="nomeBeneficiario" aria-label="Nome completo do beneficiário">
+        </div>
+
+        <!-- Campo 5: Label FOR partial match -->
+        <div class="form-group">
+            <div class="nested-div">
+                <label for="date-att">Data do Atendimento</label>
+                <input type="date" id="date-att" name="dataAtendimento" aria-label="Data em que o atendimento foi realizado">
+            </div>
+        </div>
+
+        <div class="nested-div">
+            <div class="form-group">
+                <!-- Campo 6 -->
+                <label for="cod-tuss">Código da Tabela (TUSS)</label>
+                <input type="text" id="cod-tuss" name="codigoTabela" aria-label="Código TUSS">
+            </div>
+            
+            <div class="form-group">
+                <!-- Campo 7 -->
+                <label for="cod-proc">Código do Procedimento</label>
+                <input type="text" id="cod-proc" name="codigoProcedimento" aria-label="Código do Procedimento executado">
+            </div>
+        </div>
+
+        <!-- Campo 8: Apenas CSS Selector para provar o fallback se os outros falharem? Não, este tem name/aria-label/id conectando. O fallback cuidaremos no locator. -->
+        <div class="form-group">
+            <label for="total-value">Valor Total</label>
+            <input type="number" step="0.01" id="total-value" name="valorTotal" aria-label="Valor monetário total da guia">
+        </div>
+
+        <button type="button" onclick="alert('Enviado!')">Salvar Guia</button>
+    </form>
+</div>
+
+</body>
+</html>

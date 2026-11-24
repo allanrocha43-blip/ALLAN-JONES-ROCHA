@@ -101,29 +101,39 @@ export async function saveWorkspaceFiles(files: LoadedFile[]): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      store.clear();
-      for (const f of files) {
-        const record: StoredFileRecord = {
-          id: f.id,
-          nome: f.nome,
-          conteudo: f.conteudo,
-          caminho: f.caminho,
-          tamanhoBytes: f.tamanhoBytes,
-          dataCarregamento:
-            f.dataCarregamento instanceof Date
-              ? f.dataCarregamento.toISOString()
-              : String(f.dataCarregamento),
-          ultimaAtualizacao:
-            f.ultimaAtualizacao instanceof Date
-              ? f.ultimaAtualizacao.toISOString()
-              : f.ultimaAtualizacao
-                ? String(f.ultimaAtualizacao)
-                : undefined,
-          precisaGerarHash: f.precisaGerarHash,
-          eolOriginal: f.eolOriginal,
-        };
-        store.put(record);
-      }
+      const activeIds = new Set(files.map((f) => f.id));
+
+      const keysReq = store.getAllKeys();
+      keysReq.onsuccess = () => {
+        for (const key of keysReq.result) {
+          if (!activeIds.has(String(key))) {
+            store.delete(key);
+          }
+        }
+        for (const f of files) {
+          const record: StoredFileRecord = {
+            id: f.id,
+            nome: f.nome,
+            conteudo: f.conteudo,
+            caminho: f.caminho,
+            tamanhoBytes: f.tamanhoBytes,
+            dataCarregamento:
+              f.dataCarregamento instanceof Date
+                ? f.dataCarregamento.toISOString()
+                : String(f.dataCarregamento),
+            ultimaAtualizacao:
+              f.ultimaAtualizacao instanceof Date
+                ? f.ultimaAtualizacao.toISOString()
+                : f.ultimaAtualizacao
+                  ? String(f.ultimaAtualizacao)
+                  : undefined,
+            precisaGerarHash: f.precisaGerarHash,
+            eolOriginal: f.eolOriginal,
+          };
+          store.put(record);
+        }
+      };
+
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
